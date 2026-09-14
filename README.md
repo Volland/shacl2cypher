@@ -36,9 +36,11 @@ Prebuilt binaries with both database backends are attached to each [GitHub relea
 With cargo:
 
 ```sh
-cargo install shacl2cypher                              # compile only
-cargo install shacl2cypher --features neo4j,ladybug     # with database backends (LadybugDB builds C++, needs cmake)
+cargo install --locked shacl2cypher                              # compile only
+cargo install --locked shacl2cypher --features neo4j,ladybug     # with database backends (LadybugDB builds C++, needs cmake)
 ```
+
+`--locked` installs the dependency versions the release was tested with. It is required on Rust 1.87, where the newest versions of some transitive dependencies need a newer compiler.
 
 The compiler and runner are also published as libraries: [`shacl2cypher-core`](https://crates.io/crates/shacl2cypher-core) and [`shacl2cypher-runner`](https://crates.io/crates/shacl2cypher-runner).
 

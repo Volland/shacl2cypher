@@ -11,7 +11,7 @@ The workspace separates deterministic compilation from database I/O so the core 
 - `shacl2cypher-runner`: executes manifests and introspects schemas; cargo features `neo4j` (Bolt via `neo4rs`) and `ladybug` (embedded `lbug` bindings).
 - `s2c-testkit`: test-only, unpublished; loads conformance fixtures and projects them to RDF and LPG load scripts — see [[testing#Conformance Fixtures]].
 
-The crates are published to crates.io as `shacl2cypher-core`, `shacl2cypher-runner` and `shacl2cypher` (the CLI, installable with `cargo install shacl2cypher --features neo4j,ladybug`), under the MIT license; `s2c-testkit` is never published. Directories keep their `crates/s2c-*` names. The runner's integration tests are excluded from its package because they need repository fixtures.
+The crates are published to crates.io as `shacl2cypher-core`, `shacl2cypher-runner` and `shacl2cypher` (the CLI, installable with `cargo install --locked shacl2cypher --features neo4j,ladybug`; `--locked` is needed on Rust 1.87), under the MIT license; `s2c-testkit` is never published. Directories keep their `crates/s2c-*` names. The runner's integration tests are excluded from its package because they need repository fixtures.
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`. It creates the GitHub release and attaches `shacl2cypher` binaries with both backends for Linux x86_64, Linux arm64 and macOS arm64, each with a SHA-256 checksum.
 
