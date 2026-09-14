@@ -38,11 +38,30 @@ Every shape compiles two ways in the IR: `violations(shape)` produces diagnostic
 
 `conforms` is the null-safe conjunction of the shape's constraint predicates. `sh:and`→`AND`, `sh:or`→`OR`, `sh:not`→`NOT`, `sh:xone`→exactly-one count over branch booleans, `sh:node`→inlined `conforms` of the referenced shape, `sh:qualifiedValueShape`→`COUNT {}` of neighbours satisfying `conforms`. Inlining is why recursive shapes are rejected.
 
+### Lowering Rules
+
+Each targeted shape yields one rule per constraint of its own and of its property shapes; shapes without targets only contribute through `conforms`.
+
+- Per-focus rows: `sh:minCount`, `sh:maxCount`, `sh:hasValue`, qualified counts, `sh:equals`/`sh:disjoint`/`sh:lessThan`/`sh:lessThanOrEquals` and `sh:closed`. Per-value rows: the other value tests and `sh:node`, `sh:not`, `sh:and`, `sh:or`, `sh:xone`.
+- Value kinds are decided statically:
+  - Literal tests (datatype, ranges, lengths, pattern) fail on node values, and `sh:class` fails on property values.
+  - `sh:nodeKind` follows the path kind: nodes are IRIs, property values are literals, and blank nodes never occur.
+  - Checks that always hold get `status: guaranteed-by-schema`.
+- IRI constants in `sh:in` and `sh:hasValue` compare as local names (full IRIs with `s2c:iriAsString "full"`) with property values. They compare with node values through `--node-key`, which is required in that case.
+- `sh:closed` works on node shapes; allowed keys are its property shapes' property keys plus `sh:ignoredProperties`.
+- `sh:qualifiedValueShapesDisjoint` excludes values conforming to the qualified value shapes of sibling property shapes of the same parent.
+- Unbounded repeated paths are capped at `--max-path-depth` (default 10), recorded on the rule. A depth above the dialect limit is an error.
+- On a relationship focus, only value constraints on single-property paths are allowed.
+- Rejected features (`sh:sparql`, `sh:targetNode`, `sh:languageIn`, `sh:uniqueLang`, `rdf:langString`, recursive references) are errors, or rules with `status: unsupported` under `--lenient`. Deactivated shapes yield `status: deactivated` rules.
+- Constraints contradicted by an enforced schema yield `status: schema-mismatch` plus a static diagnostic ([[output#Static Diagnostics]]).
+
 ### Explained Nested Failures
 
 Rows for nested-shape constraints always include `details`: the rule ids of the inner constraints that failed for that value.
 
 This goes beyond SHACL's standard report, which only names the outer failure. Details are computed from the same per-constraint predicates used by `conforms`.
+
+A named inner shape reports its own rule ids (`ex:AddressShape/ex:zip/sh:minCount`). A blank inner shape extends the outer rule id with its branch (`ex:PersonShape/sh:or[0]/ex:email/sh:minCount`).
 
 ## Null Safety
 
@@ -62,5 +81,8 @@ Constraints quantify over value sets ([[mapping#Value Sets]]). Every generated p
 - Neo4j `=~` is Java regex and fully anchored, so patterns are wrapped as `(?s).*(?:PATTERN).*` with `sh:flags` mapped to inline flags. Java supports backreferences, so they are allowed on Neo4j.
 - LadybugDB `=~` is also fully anchored; the renderer uses RE2 substring matching via `regexp_matches(v, 'PATTERN')` with inline RE2 flags (`(?i)`, `(?s)`, `(?m)` confirmed). Backslashes are doubled inside the string literal.
 - RE2 silently returns false for backreferences instead of failing, so they must be rejected at compile time for LadybugDB.
-- XSD-specific syntax (`\i`, `\c`, class subtraction) is expanded when possible.
+- Patterns are first normalized to the syntax Java and RE2 share, then validated with a full regex parser.
+- `\i`, `\c`, `\I` and `\C` expand to XML name-character classes. Character classes using subtraction (`[a-z-[aeiou]]`) or negated name escapes are expanded to explicit `\x{…}` ranges, since neither engine supports XSD subtraction. `&` and `~` inside classes are escaped.
+- Flags: `s`, `m` and `i` are kept for rendering; `x` removes whitespace outside character classes and `q` escapes the whole pattern. Any other flag is a compile error.
+- Unicode block escapes (`\p{IsBasicLatin}`) are compile errors. Back-references are kept and flagged so each dialect can accept or reject them.
 - Both engines fail at runtime on an invalid pattern, so every pattern is validated at compile time; errors point to the source span.

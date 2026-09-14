@@ -8,7 +8,7 @@ The JSON manifest is the primary artifact; the `.cypher` file is generated from 
 
 Top-level fields: `schemaVersion`, `compilerVersion`, `dialect`, `inputs` (`[{path, sha256}]`), `schemaSnapshotHash`, `options`, `rules`, `staticDiagnostics`, `recommendedIndexes`.
 
-Each rule entry: `name`, `ruleId`, `fingerprint`, `shape`, `path`, `constraint`, `severity`, `status` (`compiled`, `guaranteed-by-schema`, `unsupported`), `costClass`, `source` (file and span), and `queries` with `detail` and `summary` variants.
+Each rule entry: `name`, `ruleId`, `fingerprint`, `shape`, `path`, `constraint`, `severity`, `status` (`compiled`, `guaranteed-by-schema`, `schema-mismatch`, `deactivated`, `unsupported`), `costClass`, `source` (file and span), and `queries` with `detail` and `summary` variants.
 
 Queries only read. The `.cypher` file prefixes each query with a `// name: <name>` header.
 

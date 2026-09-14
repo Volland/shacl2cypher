@@ -31,24 +31,24 @@
 
 ## 5. IR and constraint lowering
 
-- [ ] 5.1 Define IR: targets (label sets, subjects-of, objects-of, relationship), value sets, value/set/logical predicates
-- [ ] 5.2 Implement null-safe predicate constructor and value-set normalization
-- [ ] 5.3 Lower Tier 1 cardinality, value type, range, string, `sh:in`/`sh:hasValue` constraints
-- [ ] 5.4 Lower property pair constraints and `sh:closed`
-- [ ] 5.5 Implement XSD regex parsing and flag handling into regex AST
-- [ ] 5.6 Implement `conforms` lowering and `sh:node`, `sh:and`, `sh:or`, `sh:not`, `sh:xone` with `details`
-- [ ] 5.7 Lower `sh:qualifiedValueShape` constraints including disjointness
-- [ ] 5.8 Lower complex paths (sequence, inverse, alternative, `*`/`+`/`?`) with `--max-path-depth`
-- [ ] 5.9 Implement relationship focus targets and reject traversal constraints on them
-- [ ] 5.10 Implement rejected-feature errors and `--lenient` unsupported entries
+- [x] 5.1 Define IR: targets (label sets, subjects-of, objects-of, relationship), value sets, value/set/logical predicates
+- [x] 5.2 Implement null-safe predicate constructor and value-set normalization
+- [x] 5.3 Lower Tier 1 cardinality, value type, range, string, `sh:in`/`sh:hasValue` constraints
+- [x] 5.4 Lower property pair constraints and `sh:closed`
+- [x] 5.5 Implement XSD regex parsing and flag handling into regex AST
+- [x] 5.6 Implement `conforms` lowering and `sh:node`, `sh:and`, `sh:or`, `sh:not`, `sh:xone` with `details`
+- [x] 5.7 Lower `sh:qualifiedValueShape` constraints including disjointness
+- [x] 5.8 Lower complex paths (sequence, inverse, alternative, `*`/`+`/`?`) with `--max-path-depth`
+- [x] 5.9 Implement relationship focus targets and reject traversal constraints on them
+- [x] 5.10 Implement rejected-feature errors and `--lenient` unsupported entries
 
 ## 6. Dialect renderers
 
-- [ ] 6.1 Implement typed literal renderer and identifier escaping per dialect
-- [ ] 6.2 Implement Neo4j renderer for all IR constructs, detail and summary variants, message placeholders
-- [ ] 6.3 Implement LadybugDB renderer using spike findings: `EXISTS/COUNT { MATCH … }`, `list_filter`/`all()` instead of comprehensions, typed empty lists, `coalesce(collect(…))`, depth cap 30
-- [ ] 6.4 Implement per-dialect regex rendering and inexpressible-construct errors
-- [ ] 6.5 Add lint test forbidding bare comparisons under `NOT` and write clauses in any rendered query
+- [x] 6.1 Implement typed literal renderer and identifier escaping per dialect
+- [x] 6.2 Implement Neo4j renderer for all IR constructs, detail and summary variants, message placeholders
+- [x] 6.3 Implement LadybugDB renderer using spike findings: `EXISTS/COUNT { MATCH … }`, `list_filter`/`all()` instead of comprehensions, typed empty lists, `coalesce(collect(…))`, depth cap 30
+- [x] 6.4 Implement per-dialect regex rendering and inexpressible-construct errors
+- [x] 6.5 Add lint test forbidding bare comparisons under `NOT` and write clauses in any rendered query
 
 ## 7. Manifest and CLI compile
 

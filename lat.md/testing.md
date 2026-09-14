@@ -32,6 +32,18 @@ For every constraint kind, fixtures cover null, absent, empty list, list with nu
 
 Dedicated fixtures cover anchoring, `sh:flags` (`i`, `s`, `m`, `x`, `q`), Unicode categories and dialect-inexpressible constructs, enforcing [[semantics#Regex Translation]].
 
+## Null-Safety Lint
+
+A test-only lint scans every rendered query of both dialects for comparisons directly under `NOT (…)`, enforcing [[semantics#Null Safety]].
+
+It is aware of string literals and bracket depth. It splits `NOT` groups on top-level `AND`/`OR` and flags operands that compare without a wrapping call or explicit `IS NULL` handling.
+
+## Renderer Smoke Runs
+
+Renderer tests can dump every rendered query (`S2C_RENDER_DUMP`, `S2C_RENDER_DUMP_LADYBUG`) for execution against sample data on the real engines, until the runner's integration tests exist.
+
+The Neo4j dump runs through `cypher-shell` in a container. The LadybugDB dump runs through `spikes/ladybug/src/bin/run_dump.rs`. Both engines must execute every query, and their violation counts must agree except where typed columns make a violation impossible. These runs found the LadybugDB `UNWIND list_filter(coalesce(…))` row leak described in [[dialects#Dialect Backends#LadybugDB]].
+
 ## Cypher Snapshots
 
 `insta` snapshot tests capture generated Cypher per dialect so query-shape changes are visible in code review.

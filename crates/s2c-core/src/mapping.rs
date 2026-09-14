@@ -167,6 +167,24 @@ impl<'a> Resolver<'a> {
         self.lower(&path.value, &context, false, true)
     }
 
+    /// Resolves a bare predicate IRI (targets and parameters such as `sh:equals`)
+    /// from focus nodes with the given labels; `nodes` requires a relationship.
+    pub fn predicate(
+        &self,
+        predicate: NamedNodeRef<'_>,
+        focus: &[String],
+        nodes: bool,
+        location: SourceLocation,
+    ) -> Result<LpgPath, MappingError> {
+        let context = StepContext {
+            annotations: None,
+            implies_nodes: false,
+            focus,
+            location,
+        };
+        self.step(predicate, &context, false, !nodes)
+    }
+
     fn lower(
         &self,
         path: &Path,
