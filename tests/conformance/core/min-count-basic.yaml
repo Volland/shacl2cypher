@@ -1,0 +1,11 @@
+# sh:minCount 1 on a property: a Person without a name violates the rule,
+# a Person with a name does not.
+shapes: min-count-basic.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "Ann"}}
+    - {id: p2, labels: [Person]}
+    - {id: p3, labels: [Person], props: {name: null}}
+expect:
+  - {rule: "ex:PersonShape/ex:name/sh:minCount", focus: p2}
+  - {rule: "ex:PersonShape/ex:name/sh:minCount", focus: p3}

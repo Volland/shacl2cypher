@@ -53,12 +53,14 @@ Constraints quantify over value sets ([[mapping#Value Sets]]). Every generated p
 3. Scalars are normalized to lists at runtime unless the schema snapshot proves the column scalar, in which case renderers specialize.
 4. On LadybugDB a NULL in a declared column is the same as absent.
 5. No renderer may emit a bare comparison under `NOT`; a lint test in the core crate enforces this.
+6. Predicates that raise runtime errors on mismatched types (Neo4j `size()`) are guarded by a type test, e.g. `CASE WHEN v IS :: STRING NOT NULL THEN size(v) >= 3 ELSE false END`; `coalesce` alone cannot catch an error.
 
 ## Regex Translation
 
 `sh:pattern` uses XSD regex with substring-match semantics. Patterns are parsed into a regex AST and rendered per dialect; they are never passed through verbatim.
 
-- Neo4j `=~` is Java regex and fully anchored, so patterns are wrapped as `(?s).*(?:PATTERN).*` with `sh:flags` mapped to inline flags.
-- LadybugDB uses RE2 substring matching (`regexp_matches`) with RE2 flag syntax.
+- Neo4j `=~` is Java regex and fully anchored, so patterns are wrapped as `(?s).*(?:PATTERN).*` with `sh:flags` mapped to inline flags. Java supports backreferences, so they are allowed on Neo4j.
+- LadybugDB `=~` is also fully anchored; the renderer uses RE2 substring matching via `regexp_matches(v, 'PATTERN')` with inline RE2 flags (`(?i)`, `(?s)`, `(?m)` confirmed). Backslashes are doubled inside the string literal.
+- RE2 silently returns false for backreferences instead of failing, so they must be rejected at compile time for LadybugDB.
 - XSD-specific syntax (`\i`, `\c`, class subtraction) is expanded when possible.
-- Constructs a dialect cannot express (e.g. backreferences on RE2) and invalid patterns are compile errors pointing to the source span.
+- Both engines fail at runtime on an invalid pattern, so every pattern is validated at compile time; errors point to the source span.

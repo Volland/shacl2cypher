@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["crates/s2c-core", "crates/s2c-cli", "crates/s2c-runner", "crates/s2c-testkit"]
+exclude = ["spikes"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"

@@ -1,0 +1,3 @@
+# Pick dependency versions compatible with the local toolchain (rustc 1.87).
+[resolver]
+incompatible-rust-versions = "fallback"

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"podman exec s2c-spike-neo4j cypher-shell -u neo4j -p s2c-spike-pass --format plain --fail-at-end -f /probe/probe.cypher 2>&1\",\"timeout\":120000,\"description\":\"Run Neo4j type and subquery pr...",
+  "error": "Exit code 1\nprobe, r\n\"1.4 int\", TRUE\nprobe, r\n\"1.4 int-not-float\", FALSE\nprobe, r\n\"1.4 float\", TRUE\nprobe, r\n\"1.4 string\", TRUE\nprobe, r\n\"1.4 bool\", TRUE\nprobe, r\n\"1.4 null IS :: INTEGER\", TRUE\nprobe, r\n\"1.4 null IS :: INTEGER NOT NULL\", FALSE\nprobe, r\n\"1.4 list int\", TRUE\nprobe, r\n\"1.4 mixed list ANY\", TRUE\nprobe, r\n\"1.4 mixed list as INTEGER\", FALSE\nprobe, r\n\"1.4 list with null\", TRUE\nprobe, r\n\"1.4 scalar IS LIST\", FALSE\nprobe, r\n\"1.4 date\", TRUE\nprobe, r\n\"1.4 zoned datetime\", TRUE\nprobe, r\n\"1...",
+  "timestamp": "2026-09-14T19:22:56.082Z",
+  "retry_count": 1
+}

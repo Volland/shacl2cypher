@@ -17,7 +17,7 @@ Greenfield Rust project; see proposal.md for motivation. The detailed design ref
 ## Decisions
 
 ### D1: Native LPG with convention + `s2c:` annotations
-Map IRIs by local-name convention, overridden by in-SHACL `s2c:` annotations, disambiguated by schema snapshot. Alternatives: separate mapping file (drifts from shapes), convention only (property-vs-relationship ambiguity), n10s RDF model (users have app-built LPGs). `--strict` gives explicit-only mode.
+Map IRIs by local-name convention, overridden by in-SHACL `s2c:` annotations, disambiguated by schema snapshot. Alternatives: separate mapping file (drifts from shapes), convention only (property-vs-relationship ambiguity), n10s RDF model (users have app-built LPGs). `--strict` gives explicit-only mode. The vocabulary namespace is `https://w3id.org/shacl2cypher#` (a permanent identifier that survives repository moves; a w3id.org redirect is registered separately).
 
 ### D2: Rust workspace `s2c-core` / `s2c-cli` / `s2c-runner`
 Core has no DB I/O; runner drivers behind `neo4j`/`ladybug` features. Alternatives: Python (pySHACL oracle in-process, but weaker distribution) and TypeScript. Rust chosen for single-binary distribution and rudof's native oracle.
@@ -50,8 +50,12 @@ Neutral YAML fixtures project to RDF (rudof, pySHACL) and LPG (Neo4j via testcon
 
 ## Risks / Trade-offs
 
-- [LadybugDB may not support correlated `COUNT {}`/`EXISTS {}` subqueries inside expressions] → Spike first (task group 1); fallback renderer hoists nested checks into `OPTIONAL MATCH … WITH` chains, possibly marking deep nesting unsupported.
-- [LadybugDB Rust bindings availability/maturity] → Verify in spike; fallback to C API via FFI or subprocess CLI for runner and tests.
+- [LadybugDB may not support correlated `COUNT {}`/`EXISTS {}` subqueries inside expressions] → **Resolved by spike:** supported up to at least three nesting levels, no hoisting fallback needed. LadybugDB lacks list/pattern comprehensions and `CALL {}`, so its renderer uses `list_filter`/`all()` and typed empty lists (details in `lat.md/dialects.md`).
+- [LadybugDB Rust bindings availability/maturity] → **Resolved by spike:** crate `lbug` 0.20.4 builds and runs in-process, including read-only open.
+- [Neo4j `size()` raises runtime errors on non-string values] → Length/pattern predicates are type-guarded with `IS :: STRING NOT NULL`, not only coalesced.
+- [RE2 silently returns false for backreferences on LadybugDB] → Compile-time rejection is mandatory, covered by regex fixtures.
+- [LadybugDB caps variable-length paths at depth 30] → Compile error when `--max-path-depth` exceeds 30 for that dialect.
+- [Local toolchain is rustc 1.87, while latest `cxx`/`time` require 1.88] → Workspace declares `rust-version = "1.87"` with Cargo's `incompatible-rust-versions = "fallback"` resolver; revisit when the toolchain is upgraded.
 - [Neo4j `IS ::` semantics for list/temporal types differ from XSD] → Datatype fixtures per XSD type; document lossy `xsd:decimal`.
 - [Inlined `conforms` expressions grow exponentially with nesting depth] → Cost class plus a compile-time nesting depth warning; memoization via `WITH` stages if needed later.
 - [Oracles disagree on edge cases] → Hand-written `expect` is authoritative; disagreements annotated in fixtures.
@@ -64,6 +68,5 @@ Not applicable (greenfield). Manifest `schemaVersion` starts at 1; breaking mani
 
 ## Open Questions
 
-- Exact LadybugDB introspection calls and Rust crate name (inherits Kùzu's `show_tables`/`table_info` and `kuzu` crate) — confirmed during the spike, does not change the approach.
 - Default `--max-path-depth` value (proposed 10).
 - Whether JSON-LD input is added after v1.

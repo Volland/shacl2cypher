@@ -6,23 +6,37 @@ How SHACL's RDF terms (classes, predicates, literals, IRIs) are mapped onto LPG 
 
 Each class and path IRI resolves to an LPG element by naming convention, overridden by `s2c:` annotations, and cross-checked against the schema snapshot when present.
 
-Resolution order for a path: explicit `s2c:` annotation, then schema snapshot evidence (existing column vs rel table), then convention. See [[dialects#Schema Awareness]].
+Resolution order for a path step: a shape-level `s2c:` annotation, then an annotation on the predicate IRI, then structural hints and schema snapshot evidence, then convention. Shape-level annotations only apply to simple paths (a predicate or its inverse). See [[dialects#Schema Awareness]].
 
 ### Convention
 
-Without annotations, local names are used verbatim for labels and property keys; relationship types use UPPER_SNAKE_CASE of the local name.
+Without annotations, local names (after the last `#`, `/` or `:`) are used verbatim for labels and property keys; relationship types use UPPER_SNAKE_CASE of the local name.
 
-A path is a **relationship** only if its property shape has `sh:class`, `sh:node`, or `sh:nodeKind` of `sh:IRI`/`sh:BlankNode`/`sh:BlankNodeOrIRI`; otherwise it is a **property**. Relationship direction defaults to outgoing; `sh:inversePath` flips it.
+Class labels come from the node shape's `s2c:label` when that shape has a single class target (with several it is an ambiguity error), then the class IRI's `s2c:label`, then the local name. A local name found in the schema snapshot counts as schema evidence.
+
+### Relationship Detection
+
+A path step is a relationship when annotated with `s2c:relationship` or `s2c:direction`, or when its position must yield nodes; otherwise hints and the schema decide, defaulting to a property.
+
+- Positions that must yield nodes: inverse steps, repeated steps (`*`, `+`, `?`) and every step before the last in a sequence. An explicit `s2c:property` there is a compile error.
+- Final-step hints: `sh:class`, `sh:node`, or `sh:nodeKind` of `sh:IRI`/`sh:BlankNode`/`sh:BlankNodeOrIRI` on the property shape.
+- Schema evidence: the snapshot has the conventional relationship type and no focus label declares a property with the local name (all node types are consulted when focus labels are unknown).
+- Direction defaults to outgoing, `s2c:direction` overrides it, and `sh:inversePath` flips it. Alternatives must be all properties or all relationships.
+- Combining `s2c:property` with `s2c:relationship` or `s2c:direction` on the same subject is a compile error.
 
 ### Strict Mode
 
-With `--strict`, any class or path resolved by convention alone (no annotation, no schema evidence) is a compile error.
+With `--strict`, any class label, property key or relationship type chosen by convention alone (neither annotated nor found in the schema snapshot) is a compile error.
 
 Intended for teams that want every mapping explicit and reviewable.
 
 ## Annotation Vocabulary
 
 The `s2c:` namespace adds LPG-specific hints inside SHACL files. Standard SHACL engines ignore these triples, so shapes stay portable.
+
+The namespace IRI is `https://w3id.org/shacl2cypher#` (declare `@prefix s2c: <https://w3id.org/shacl2cypher#> .`). String-valued annotations take plain string literals; `s2c:direction`, `s2c:collection` and `s2c:iriAsString` only accept the values listed below.
+
+Parsing is strict so typos cannot silently fall back to convention. An unknown `s2c:` predicate, an invalid enumerated value, or an annotation on the wrong kind of subject is a compile error with its location. Wrong-subject examples are `s2c:key` on a property shape and `s2c:direction` on a node shape.
 
 | Annotation | Subject | Meaning |
 |---|---|---|
@@ -55,7 +69,16 @@ XSD datatypes map to native value types per dialect; overridable per predicate w
 | `xsd:anyURI` | `IS :: STRING` | `STRING` |
 | `rdf:langString` | compile error | compile error |
 
-On LadybugDB, a datatype constraint on a declared column is resolved statically: guaranteed-by-schema or a schema mismatch. No query is generated.
+Before dialect rendering, each XSD datatype maps to the neutral schema value types that can hold it:
+
+- `xsd:string`, `normalizedString`, `token`, `anyURI` → `STRING`; `xsd:boolean` → `BOOLEAN`; `xsd:date` → `DATE`; `xsd:dateTime` → `ZONED_DATETIME` or `LOCAL_DATETIME`; `xsd:dateTimeStamp` → `ZONED_DATETIME`; `xsd:time` → `LOCAL_TIME` or `ZONED_TIME`; `xsd:duration` and its subtypes → `DURATION`.
+- `xsd:integer` → any integer type. Derived types (`long`, `int`, `short`, `byte`, unsigned and sign-restricted types) also carry an inclusive value range.
+- `xsd:decimal` → `DECIMAL`, `DOUBLE` or `FLOAT` (the last two lossy); `xsd:double` and `xsd:float` → `DOUBLE` or `FLOAT`.
+- Any other datatype is a compile error.
+
+`s2c:datatype` replaces the mapping with exactly one schema type name such as `LOCAL_DATETIME` or `LIST<STRING>`. It is case-insensitive and accepts spaces for underscores.
+
+Against a declared column, a datatype constraint is either guaranteed (allowed type within range), needs a range check (e.g. `xsd:short` on `INT64`), needs a value check (`ANY`), or is contradicted. List columns are judged by their element type. On LadybugDB, guaranteed and contradicted constraints generate no query; see [[output#Static Diagnostics]].
 
 ## Value Sets
 
@@ -75,7 +98,8 @@ On a property path the IRI renders as its local name, or the full IRI with `s2c:
 
 - Neo4j: `--neo4j-labels explicit` (default) expands to `(n:Person|Employee)`; `inherited` assumes nodes already carry all superclass labels and skips expansion.
 - LadybugDB: always expands, since a node belongs to exactly one table; multi-table patterns like `(n:Person:Employee)` match any listed table.
-- Subclass cycles are compile errors.
+- Expansion is transitive, ignores reflexive `rdfs:subClassOf` statements and lists classes sorted by IRI, so generated patterns are deterministic.
+- Subclass cycles are compile errors listing every `rdfs:subClassOf` statement of the cycle with its location.
 - A target class with no table (and no subclass tables) is a static schema mismatch on LadybugDB.
 
 ## Relationship Targets

@@ -1,0 +1,15 @@
+[package]
+name = "s2c-runner"
+description = "Executes shacl2cypher manifests against Neo4j and LadybugDB and introspects schemas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[features]
+default = []
+neo4j = []
+ladybug = []
+
+[dependencies]
+s2c-core = { path = "../s2c-core" }

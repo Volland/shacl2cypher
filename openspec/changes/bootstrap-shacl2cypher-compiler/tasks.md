@@ -1,33 +1,33 @@
 ## 1. Spikes (de-risk dialects)
 
-- [ ] 1.1 Verify LadybugDB Rust bindings: open DB in-process, create node/rel tables, run a query
-- [ ] 1.2 Verify LadybugDB support for correlated `COUNT {}`/`EXISTS {}` subqueries and list comprehensions inside `WHERE`; document fallback shape if unsupported
-- [ ] 1.3 Verify LadybugDB schema introspection calls and regex functions (`regexp_matches`, flags)
-- [ ] 1.4 Verify Neo4j 5 `IS ::` behavior for scalars, lists and temporal types against the datatype table
-- [ ] 1.5 Record spike findings in `lat.md/dialects.md` and adjust design if needed
+- [x] 1.1 Verify LadybugDB Rust bindings: open DB in-process, create node/rel tables, run a query
+- [x] 1.2 Verify LadybugDB support for correlated `COUNT {}`/`EXISTS {}` subqueries and list comprehensions inside `WHERE`; document fallback shape if unsupported
+- [x] 1.3 Verify LadybugDB schema introspection calls and regex functions (`regexp_matches`, flags)
+- [x] 1.4 Verify Neo4j 5 `IS ::` behavior for scalars, lists and temporal types against the datatype table
+- [x] 1.5 Record spike findings in `lat.md/dialects.md` and adjust design if needed
 
 ## 2. Workspace and scaffolding
 
-- [ ] 2.1 Create cargo workspace with `s2c-core`, `s2c-cli`, `s2c-runner` (features `neo4j`, `ladybug`)
-- [ ] 2.2 Set up CI: fmt, clippy, tests, testcontainers Neo4j job, pySHACL oracle job
-- [ ] 2.3 Add `insta` and the conformance fixture harness skeleton (YAML loader, RDF and LPG projections, `expect` comparison)
+- [x] 2.1 Create cargo workspace with `s2c-core`, `s2c-cli`, `s2c-runner` (features `neo4j`, `ladybug`)
+- [x] 2.2 Set up CI: fmt, clippy, tests, testcontainers Neo4j job, pySHACL oracle job
+- [x] 2.3 Add `insta` and the conformance fixture harness skeleton (YAML loader, RDF and LPG projections, `expect` comparison)
 
 ## 3. Shapes loading and AST
 
-- [ ] 3.1 Load Turtle/N-Triples/TriG into a union graph with per-file blank-node scoping and source spans
-- [ ] 3.2 Resolve local `owl:imports` with cycle handling; gate remote imports behind `--allow-remote-imports`
-- [ ] 3.3 Build shapes AST: node/property shapes, targets, implicit class targets, RDF lists, path structures, defaults
-- [ ] 3.4 Parse `s2c:` annotations into the AST
-- [ ] 3.5 Detect conflicting single-valued settings and report all source spans
-- [ ] 3.6 Detect recursive shape references
+- [x] 3.1 Load Turtle/N-Triples/TriG into a union graph with per-file blank-node scoping and source spans
+- [x] 3.2 Resolve local `owl:imports` with cycle handling; gate remote imports behind `--allow-remote-imports`
+- [x] 3.3 Build shapes AST: node/property shapes, targets, implicit class targets, RDF lists, path structures, defaults
+- [x] 3.4 Parse `s2c:` annotations into the AST
+- [x] 3.5 Detect conflicting single-valued settings and report all source spans
+- [x] 3.6 Detect recursive shape references
 
 ## 4. Mapping and schema snapshot
 
-- [ ] 4.1 Define schema snapshot JSON format with serde and validation
-- [ ] 4.2 Implement resolution: annotations > schema evidence > convention; relationship detection rule; `--strict`
-- [ ] 4.3 Implement class hierarchy expansion from shapes and `--ontology`, subclass cycle detection, `--neo4j-labels`
-- [ ] 4.4 Implement datatype mapping table and `s2c:datatype` overrides
-- [ ] 4.5 Implement static diagnostics (`SchemaMismatch`) and `guaranteed-by-schema` resolution; `--fail-on-schema-mismatch`
+- [x] 4.1 Define schema snapshot JSON format with serde and validation
+- [x] 4.2 Implement resolution: annotations > schema evidence > convention; relationship detection rule; `--strict`
+- [x] 4.3 Implement class hierarchy expansion from shapes and `--ontology`, subclass cycle detection, `--neo4j-labels`
+- [x] 4.4 Implement datatype mapping table and `s2c:datatype` overrides
+- [x] 4.5 Implement static diagnostics (`SchemaMismatch`) and `guaranteed-by-schema` resolution; `--fail-on-schema-mismatch`
 
 ## 5. IR and constraint lowering
 
@@ -46,7 +46,7 @@
 
 - [ ] 6.1 Implement typed literal renderer and identifier escaping per dialect
 - [ ] 6.2 Implement Neo4j renderer for all IR constructs, detail and summary variants, message placeholders
-- [ ] 6.3 Implement LadybugDB renderer, including fallback for nested subqueries per spike results
+- [ ] 6.3 Implement LadybugDB renderer using spike findings: `EXISTS/COUNT { MATCH … }`, `list_filter`/`all()` instead of comprehensions, typed empty lists, `coalesce(collect(…))`, depth cap 30
 - [ ] 6.4 Implement per-dialect regex rendering and inexpressible-construct errors
 - [ ] 6.5 Add lint test forbidding bare comparisons under `NOT` and write clauses in any rendered query
 

@@ -1,0 +1,21 @@
+[package]
+name = "s2c-cli"
+description = "shacl2cypher command-line interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "shacl2cypher"
+path = "src/main.rs"
+
+[features]
+default = []
+neo4j = ["s2c-runner/neo4j"]
+ladybug = ["s2c-runner/ladybug"]
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+s2c-core = { path = "../s2c-core" }
+s2c-runner = { path = "../s2c-runner" }
