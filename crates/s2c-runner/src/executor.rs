@@ -2,8 +2,8 @@
 
 use std::time::Duration;
 
-use s2c_core::render::Dialect;
-use s2c_core::schema::SchemaSnapshot;
+use shacl2cypher_core::render::Dialect;
+use shacl2cypher_core::schema::SchemaSnapshot;
 
 /// One result row: column name to JSON value.
 pub type Row = serde_json::Map<String, serde_json::Value>;

@@ -4,14 +4,14 @@
 
 use std::path::{Path, PathBuf};
 
-use s2c_core::compile::{compile, CompileOptions, CompileRequest};
-use s2c_core::render::Dialect;
-use s2c_core::schema::SchemaSnapshot;
-use s2c_runner::executor::Executor;
-use s2c_runner::validate::{validate, Status, ValidateOptions};
 use s2c_testkit::compare::{compare, detail_mismatches, without_known};
 use s2c_testkit::fixture::{Expected, Fixture, ID_PROPERTY};
 use serde_json::Value;
+use shacl2cypher_core::compile::{compile, CompileOptions, CompileRequest};
+use shacl2cypher_core::render::Dialect;
+use shacl2cypher_core::schema::SchemaSnapshot;
+use shacl2cypher_runner::executor::Executor;
+use shacl2cypher_runner::validate::{validate, Status, ValidateOptions};
 
 fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap() {

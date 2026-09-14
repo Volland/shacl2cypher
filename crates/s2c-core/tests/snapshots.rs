@@ -1,10 +1,10 @@
 //! Snapshots of the generated `.cypher` file per dialect, so query-shape changes
-//! show up in code review. Update with `INSTA_UPDATE=always cargo test -p s2c-core --test snapshots`.
+//! show up in code review. Update with `INSTA_UPDATE=always cargo test -p shacl2cypher-core --test snapshots`.
 
 use std::path::PathBuf;
 
-use s2c_core::compile::{compile, CompileOptions, CompileRequest};
-use s2c_core::render::Dialect;
+use shacl2cypher_core::compile::{compile, CompileOptions, CompileRequest};
+use shacl2cypher_core::render::Dialect;
 
 fn data(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

@@ -10,10 +10,10 @@ mod common;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use s2c_core::render::Dialect;
-use s2c_runner::executor::{ExecError, Executor, Params};
-use s2c_runner::neo4j::{Neo4jConfig, Neo4jExecutor};
 use s2c_testkit::fixture::Fixture;
+use shacl2cypher_core::render::Dialect;
+use shacl2cypher_runner::executor::{ExecError, Executor, Params};
+use shacl2cypher_runner::neo4j::{Neo4jConfig, Neo4jExecutor};
 
 static DATABASE: Mutex<()> = Mutex::new(());
 

@@ -9,12 +9,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::time::Duration;
 
-use s2c_core::compile::{compile, CompileOptions, CompileRequest};
-use s2c_core::render::Dialect;
-use s2c_runner::executor::Executor;
-use s2c_runner::neo4j::{Neo4jConfig, Neo4jExecutor};
-use s2c_runner::validate::{validate, Status, ValidateOptions};
 use s2c_testkit::w3c::{self, W3cTest};
+use shacl2cypher_core::compile::{compile, CompileOptions, CompileRequest};
+use shacl2cypher_core::render::Dialect;
+use shacl2cypher_runner::executor::Executor;
+use shacl2cypher_runner::neo4j::{Neo4jConfig, Neo4jExecutor};
+use shacl2cypher_runner::validate::{validate, Status, ValidateOptions};
 
 fn config() -> Option<Neo4jConfig> {
     Some(Neo4jConfig {

@@ -34,7 +34,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ladybug
-      - run: cargo test --workspace --features s2c-cli/ladybug
+      - run: cargo test --workspace --features shacl2cypher/ladybug
 
   neo4j:
     name: Neo4j backend
@@ -57,7 +57,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: neo4j
-      - run: cargo test --workspace --features s2c-cli/neo4j
+      - run: cargo test --workspace --features shacl2cypher/neo4j
         env:
           S2C_NEO4J_URI: bolt://localhost:7687
           S2C_NEO4J_PASSWORD: s2c-ci-password

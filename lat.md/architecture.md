@@ -6,10 +6,14 @@ Rust cargo workspace with a pure compiler core, a CLI, and an optional database 
 
 The workspace separates deterministic compilation from database I/O so the core stays testable and embeddable.
 
-- `s2c-core`: input assembly, shapes AST, resolution, IR, dialect renderers, manifest. No database I/O.
-- `s2c-cli`: the `shacl2cypher` binary with `compile`, plus `validate` and `schema dump` when runner features are enabled.
-- `s2c-runner`: executes manifests and introspects schemas; cargo features `neo4j` (Bolt via `neo4rs`) and `ladybug` (embedded `lbug` bindings).
+- `shacl2cypher-core`: input assembly, shapes AST, resolution, IR, dialect renderers, manifest. No database I/O.
+- `shacl2cypher`: the `shacl2cypher` binary with `compile`, plus `validate` and `schema dump` when runner features are enabled.
+- `shacl2cypher-runner`: executes manifests and introspects schemas; cargo features `neo4j` (Bolt via `neo4rs`) and `ladybug` (embedded `lbug` bindings).
 - `s2c-testkit`: test-only, unpublished; loads conformance fixtures and projects them to RDF and LPG load scripts — see [[testing#Conformance Fixtures]].
+
+The crates are published to crates.io as `shacl2cypher-core`, `shacl2cypher-runner` and `shacl2cypher` (the CLI, installable with `cargo install shacl2cypher --features neo4j,ladybug`), under the MIT license; `s2c-testkit` is never published. Directories keep their `crates/s2c-*` names. The runner's integration tests are excluded from its package because they need repository fixtures.
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`. It creates the GitHub release and attaches `shacl2cypher` binaries with both backends for Linux x86_64, Linux arm64 and macOS arm64, each with a SHA-256 checksum.
 
 The workspace declares `rust-version = "1.87"` and uses Cargo's `incompatible-rust-versions = "fallback"` resolver so dependency versions stay compatible with that toolchain. Throwaway spikes live in `spikes/`, excluded from the workspace.
 
@@ -93,7 +97,7 @@ The exit code tells CI whether rules at or above `--fail-on` failed, and whether
 
 ### Backends
 
-Backends are cargo features of `s2c-runner` and `s2c-cli`; without them `validate` and `schema dump` report that no database backend is available.
+Backends are cargo features of `shacl2cypher-runner` and `shacl2cypher`; without them `validate` and `schema dump` report that no database backend is available.
 
 - `neo4j` uses `neo4rs` over Bolt (`--connect`, `--user`/`NEO4J_USER`, `--password`/`NEO4J_PASSWORD`, `--database`). The driver is pinned to `0.9.0-rc.10`: 0.8 decodes the integers −16…−1 as 240…255, which the literal fuzz test caught. Read-mode transactions are unstable in that driver, so every query runs in an explicit transaction that is always rolled back, and nothing a query does persists. A timed-out query abandons its connection pool. Rows are read as Bolt values and converted to JSON explicitly, so report values never depend on the driver's serde mapping.
 - `ladybug` uses the embedded `lbug` crate (`--ladybug <file>`). Databases open with `read_only(true)`, and a missing file is an error rather than a new database. Timeouts use the connection's native query timeout.

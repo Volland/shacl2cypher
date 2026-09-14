@@ -4,13 +4,13 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use s2c_core::compile::{compile, CompileOptions, CompileRequest, Manifest};
-use s2c_core::hierarchy::LabelPolicy;
-use s2c_core::load::RemoteFetcher;
-use s2c_core::render::Dialect;
-use s2c_runner::executor::Executor;
-use s2c_runner::report::{self, Format};
-use s2c_runner::validate::{exit_code, validate, FailOn, ValidateOptions};
+use shacl2cypher_core::compile::{compile, CompileOptions, CompileRequest, Manifest};
+use shacl2cypher_core::hierarchy::LabelPolicy;
+use shacl2cypher_core::load::RemoteFetcher;
+use shacl2cypher_core::render::Dialect;
+use shacl2cypher_runner::executor::Executor;
+use shacl2cypher_runner::report::{self, Format};
+use shacl2cypher_runner::validate::{exit_code, validate, FailOn, ValidateOptions};
 
 /// Largest remote import accepted with `--allow-remote-imports`.
 const MAX_REMOTE_BYTES: u64 = 16 * 1024 * 1024;
@@ -316,7 +316,7 @@ fn print_diagnostics(manifest: &Manifest) {
 /// Opens the database named by `--connect` or `--ladybug`.
 // @lat: [[architecture#Runner#Backends]]
 fn open_backend(args: &BackendArgs) -> Result<Box<dyn Executor>, Failure> {
-    let available = s2c_runner::available_backends();
+    let available = shacl2cypher_runner::available_backends();
     if available.is_empty() {
         return Err(setup(
             "no database backend is available in this build; rebuild with `--features neo4j` or `--features ladybug`",
@@ -333,13 +333,14 @@ fn open_backend(args: &BackendArgs) -> Result<Box<dyn Executor>, Failure> {
         (Some(uri), _) => {
             #[cfg(feature = "neo4j")]
             {
-                let config = s2c_runner::neo4j::Neo4jConfig {
+                let config = shacl2cypher_runner::neo4j::Neo4jConfig {
                     uri: uri.clone(),
                     user: args.user.clone(),
                     password: args.password.clone(),
                     database: args.database.clone(),
                 };
-                let executor = s2c_runner::neo4j::Neo4jExecutor::connect(config).map_err(setup)?;
+                let executor =
+                    shacl2cypher_runner::neo4j::Neo4jExecutor::connect(config).map_err(setup)?;
                 Ok(Box::new(executor))
             }
             #[cfg(not(feature = "neo4j"))]
@@ -351,7 +352,8 @@ fn open_backend(args: &BackendArgs) -> Result<Box<dyn Executor>, Failure> {
         (None, Some(path)) => {
             #[cfg(feature = "ladybug")]
             {
-                let executor = s2c_runner::ladybug::LadybugExecutor::open(path).map_err(setup)?;
+                let executor =
+                    shacl2cypher_runner::ladybug::LadybugExecutor::open(path).map_err(setup)?;
                 Ok(Box::new(executor))
             }
             #[cfg(not(feature = "ladybug"))]

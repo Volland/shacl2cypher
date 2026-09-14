@@ -1,10 +1,15 @@
 [package]
-name = "s2c-core"
+name = "shacl2cypher-core"
 description = "SHACL to Cypher compiler core: shapes AST, mapping, IR, dialect renderers, manifest"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-publish = false
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "../../README.md"
+keywords = ["shacl", "cypher", "neo4j", "graph", "validation"]
+categories = ["compilers", "database"]
 
 [dependencies]
 oxrdf = "0.3.4"

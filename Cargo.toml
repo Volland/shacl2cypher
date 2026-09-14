@@ -7,3 +7,6 @@ exclude = ["spikes"]
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.87"
+license = "MIT"
+repository = "https://github.com/Volland/shacl2cypher"
+homepage = "https://github.com/Volland/shacl2cypher"

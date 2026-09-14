@@ -6,10 +6,10 @@ mod common;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use s2c_core::render::Dialect;
-use s2c_runner::executor::{ExecError, Executor, Params};
-use s2c_runner::ladybug::LadybugExecutor;
 use s2c_testkit::fixture::Fixture;
+use shacl2cypher_core::render::Dialect;
+use shacl2cypher_runner::executor::{ExecError, Executor, Params};
+use shacl2cypher_runner::ladybug::LadybugExecutor;
 
 /// Writes the fixture's LPG projection into a new database file.
 fn create_database(fixture: &Fixture, dir: &Path) -> Result<PathBuf, String> {

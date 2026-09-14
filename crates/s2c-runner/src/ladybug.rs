@@ -4,9 +4,11 @@ use std::path::Path;
 use std::time::Duration;
 
 use lbug::{Connection, Database, SystemConfig, Value};
-use s2c_core::render::{quote, Dialect};
-use s2c_core::schema::{Endpoint, NodeType, PropertyDef, RelType, SchemaSnapshot, ValueType};
 use serde_json::Value as Json;
+use shacl2cypher_core::render::{quote, Dialect};
+use shacl2cypher_core::schema::{
+    Endpoint, NodeType, PropertyDef, RelType, SchemaSnapshot, ValueType,
+};
 
 use crate::executor::{ExecError, Executor, Params, Row};
 

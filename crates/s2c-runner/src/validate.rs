@@ -3,8 +3,8 @@
 
 use std::time::{Duration, Instant};
 
-use s2c_core::compile::{Manifest, ManifestRule, SourceRef};
 use serde::Serialize;
+use shacl2cypher_core::compile::{Manifest, ManifestRule, SourceRef};
 
 use crate::executor::{ExecError, Executor, Params, Row};
 
@@ -266,10 +266,10 @@ pub fn exit_code(report: &Report, fail_on: FailOn) -> u8 {
 pub(crate) mod tests {
     use std::collections::HashMap;
 
-    use s2c_core::compile::Queries;
-    use s2c_core::render::Dialect;
-    use s2c_core::schema::SchemaSnapshot;
     use serde_json::json;
+    use shacl2cypher_core::compile::Queries;
+    use shacl2cypher_core::render::Dialect;
+    use shacl2cypher_core::schema::SchemaSnapshot;
 
     use super::*;
 

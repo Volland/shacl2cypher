@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use s2c_core::compile::{compile, Compilation, CompileOptions, CompileRequest};
-use s2c_core::render::Dialect;
+use shacl2cypher_core::compile::{compile, Compilation, CompileOptions, CompileRequest};
+use shacl2cypher_core::render::Dialect;
 
 const PREFIXES: &str = "@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://example.org/> .

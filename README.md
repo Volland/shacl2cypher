@@ -19,6 +19,7 @@ failed      Violation           1         8  PersonShape.worksFor.maxCount
 
 ## Contents
 
+- [Install](#install)
 - [Build](#build)
 - [Quick start](#quick-start)
 - [How shapes map to the graph](#how-shapes-map-to-the-graph)
@@ -28,15 +29,28 @@ failed      Violation           1         8  PersonShape.worksFor.maxCount
 - [Validation reports and exit codes](#validation-reports-and-exit-codes)
 - [Development](#development)
 
+## Install
+
+Prebuilt binaries with both database backends are attached to each [GitHub release](https://github.com/Volland/shacl2cypher/releases). They cover Linux x86_64, Linux arm64 and macOS arm64, and each tarball has a SHA-256 checksum next to it.
+
+With cargo:
+
+```sh
+cargo install shacl2cypher                              # compile only
+cargo install shacl2cypher --features neo4j,ladybug     # with database backends (LadybugDB builds C++, needs cmake)
+```
+
+The compiler and runner are also published as libraries: [`shacl2cypher-core`](https://crates.io/crates/shacl2cypher-core) and [`shacl2cypher-runner`](https://crates.io/crates/shacl2cypher-runner).
+
 ## Build
 
 Requires Rust 1.87 or newer. Database backends are optional cargo features, so a compile-only binary contains no database client code.
 
 ```sh
-cargo build --release -p s2c-cli                          # compile only
-cargo build --release -p s2c-cli --features neo4j         # + Neo4j (Bolt)
-cargo build --release -p s2c-cli --features ladybug       # + LadybugDB (embedded; builds C++, needs cmake)
-cargo build --release -p s2c-cli --features neo4j,ladybug
+cargo build --release -p shacl2cypher                          # compile only
+cargo build --release -p shacl2cypher --features neo4j         # + Neo4j (Bolt)
+cargo build --release -p shacl2cypher --features ladybug       # + LadybugDB (embedded; builds C++, needs cmake)
+cargo build --release -p shacl2cypher --features neo4j,ladybug
 ```
 
 The binary is `target/release/shacl2cypher`.
@@ -210,21 +224,23 @@ Summary rows return `ruleId`, `severity`, `violationCount` and a `sample` of foc
 
 The workspace has four crates:
 
-- `s2c-core`: the pure compiler.
-- `s2c-cli`: the `shacl2cypher` binary.
-- `s2c-runner`: database execution, schema dumps and reports.
+- `shacl2cypher-core`: the pure compiler.
+- `shacl2cypher`: the `shacl2cypher` binary.
+- `shacl2cypher-runner`: database execution, schema dumps and reports.
 - `s2c-testkit`: conformance fixtures and the W3C harness.
 
 ```sh
 cargo test --workspace                                       # compiler, CLI, reports
-cargo test --workspace --features s2c-cli/ladybug            # + LadybugDB conformance fixtures and fuzzing
+cargo test --workspace --features shacl2cypher/ladybug            # + LadybugDB conformance fixtures and fuzzing
 S2C_NEO4J_URI=bolt://localhost:7687 S2C_NEO4J_PASSWORD=secret \
-  cargo test --workspace --features s2c-cli/neo4j            # + Neo4j fixtures, fuzzing, W3C suite
+  cargo test --workspace --features shacl2cypher/neo4j            # + Neo4j fixtures, fuzzing, W3C suite
 ```
 
 - **Fixtures** live in `tests/conformance/` as a YAML graph plus a shapes file and a hand-written `expect` block. Set `S2C_FIXTURE=<substring>` to run only matching fixtures.
 - **pySHACL oracle:** `pip install -r tests/oracle/requirements.txt`, then `cargo build -p s2c-testkit --bin s2c-fixture` and run `python tests/oracle/pyshacl_oracle.py`.
-- **Snapshots:** accept intended Cypher changes with `INSTA_UPDATE=always cargo test -p s2c-core --test snapshots`.
+- **Snapshots:** accept intended Cypher changes with `INSTA_UPDATE=always cargo test -p shacl2cypher-core --test snapshots`.
 - **W3C suite:** after an intended change, rerun with `S2C_W3C_BLESS=1` (and a database) and review the diff of `tests/w3c/status.yaml`.
+
+shacl2cypher is licensed under the [MIT License](LICENSE).
 
 Design documentation lives in [`lat.md/`](lat.md/lat.md); check it with `lat check`. The change proposal and specs are in [`openspec/`](openspec/).

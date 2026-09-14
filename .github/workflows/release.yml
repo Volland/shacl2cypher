@@ -1,0 +1,56 @@
+name: Release
+
+# Pushing a `v*` tag creates a GitHub release with prebuilt `shacl2cypher`
+# binaries (both database backends) and their SHA-256 checksums.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  create:
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh release create "$GITHUB_REF_NAME" --title "shacl2cypher $GITHUB_REF_NAME" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: create
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.87.0"
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+      - run: cargo build --release --locked -p shacl2cypher --features neo4j,ladybug --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          name="shacl2cypher-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir "$name"
+          cp "target/${{ matrix.target }}/release/shacl2cypher" README.md LICENSE "$name/"
+          tar czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+      - run: gh release upload "$GITHUB_REF_NAME" shacl2cypher-*.tar.gz shacl2cypher-*.tar.gz.sha256
+        env:
+          GH_TOKEN: ${{ github.token }}

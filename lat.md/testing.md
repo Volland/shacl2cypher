@@ -83,7 +83,7 @@ The Neo4j dump runs through `cypher-shell` in a container. The LadybugDB dump ru
 
 `insta` snapshot tests capture generated Cypher per dialect so query-shape changes are visible in code review.
 
-`crates/s2c-core/tests/snapshots.rs` compiles `tests/data/snapshot.ttl` for Neo4j and, with `snapshot-schema.json`, for LadybugDB. Accept intended changes with `INSTA_UPDATE=always cargo test -p s2c-core --test snapshots`.
+`crates/s2c-core/tests/snapshots.rs` compiles `tests/data/snapshot.ttl` for Neo4j and, with `snapshot-schema.json`, for LadybugDB. Accept intended changes with `INSTA_UPDATE=always cargo test -p shacl2cypher-core --test snapshots`.
 
 ## Literal Round-Trip Fuzzing
 

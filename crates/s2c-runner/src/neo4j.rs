@@ -5,9 +5,11 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::Duration;
 
 use neo4rs::{query, BoltMap, BoltType, ConfigBuilder, Graph};
-use s2c_core::render::{ident, Dialect};
-use s2c_core::schema::{Endpoint, NodeType, PropertyDef, RelType, SchemaSnapshot, ValueType};
 use serde_json::Value as Json;
+use shacl2cypher_core::render::{ident, Dialect};
+use shacl2cypher_core::schema::{
+    Endpoint, NodeType, PropertyDef, RelType, SchemaSnapshot, ValueType,
+};
 use tokio::runtime::Runtime;
 
 use crate::executor::{ExecError, Executor, Params, Row};

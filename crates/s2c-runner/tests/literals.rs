@@ -2,10 +2,10 @@
 //! renderer and both databases.
 #![cfg(any(feature = "ladybug", feature = "neo4j"))]
 
-use s2c_core::ir::Constant;
-use s2c_core::render::{constant, ident, quote, Dialect};
-use s2c_runner::executor::{Executor, Params, Row};
 use serde_json::Value;
+use shacl2cypher_core::ir::Constant;
+use shacl2cypher_core::render::{constant, ident, quote, Dialect};
+use shacl2cypher_runner::executor::{Executor, Params, Row};
 
 const PARAMS: Params = Params {
     limit: 1,
@@ -90,7 +90,9 @@ fn round_trip(executor: &mut dyn Executor) -> Vec<String> {
     for _ in 0..100 {
         let name = format!("c{}", random_text(&mut rng));
         // Neo4j decodes `\uXXXX` inside backticks, so the renderer rejects such names.
-        if dialect == Dialect::Neo4j && s2c_core::render::neo4j::unrepresentable_identifier(&name) {
+        if dialect == Dialect::Neo4j
+            && shacl2cypher_core::render::neo4j::unrepresentable_identifier(&name)
+        {
             rejected += 1;
             continue;
         }
@@ -169,7 +171,7 @@ fn literals_round_trip_on_ladybug() {
         conn.query("CREATE NODE TABLE T(id STRING, PRIMARY KEY(id))")
             .unwrap();
     }
-    let mut executor = s2c_runner::ladybug::LadybugExecutor::open(&path).unwrap();
+    let mut executor = shacl2cypher_runner::ladybug::LadybugExecutor::open(&path).unwrap();
     let failures = round_trip(&mut executor);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -182,13 +184,13 @@ fn literals_round_trip_on_neo4j() {
         eprintln!("skipping: S2C_NEO4J_URI is not set");
         return;
     };
-    let config = s2c_runner::neo4j::Neo4jConfig {
+    let config = shacl2cypher_runner::neo4j::Neo4jConfig {
         uri,
         user: std::env::var("S2C_NEO4J_USER").unwrap_or_else(|_| "neo4j".into()),
         password: std::env::var("S2C_NEO4J_PASSWORD").unwrap_or_default(),
         database: None,
     };
-    let mut executor = s2c_runner::neo4j::Neo4jExecutor::connect(config).unwrap();
+    let mut executor = shacl2cypher_runner::neo4j::Neo4jExecutor::connect(config).unwrap();
     let failures = round_trip(&mut executor);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

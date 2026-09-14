@@ -1275,50 +1275,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
-name = "s2c-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "s2c-core",
- "s2c-runner",
- "serde_json",
- "tempfile",
- "ureq",
-]
-
-[[package]]
-name = "s2c-core"
-version = "0.1.0"
-dependencies = [
- "insta",
- "oxrdf",
- "oxttl",
- "regex",
- "regex-syntax",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "s2c-runner"
-version = "0.1.0"
-dependencies = [
- "lbug",
- "neo4rs",
- "s2c-core",
- "s2c-testkit",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "tempfile",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "s2c-testkit"
 version = "0.1.0"
 dependencies = [
@@ -1438,6 +1394,50 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shacl2cypher"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde_json",
+ "shacl2cypher-core",
+ "shacl2cypher-runner",
+ "tempfile",
+ "ureq",
+]
+
+[[package]]
+name = "shacl2cypher-core"
+version = "0.1.0"
+dependencies = [
+ "insta",
+ "oxrdf",
+ "oxttl",
+ "regex",
+ "regex-syntax",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "shacl2cypher-runner"
+version = "0.1.0"
+dependencies = [
+ "lbug",
+ "neo4rs",
+ "s2c-testkit",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "shacl2cypher-core",
+ "tempfile",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

@@ -1,10 +1,15 @@
 [package]
-name = "s2c-cli"
-description = "shacl2cypher command-line interface"
+name = "shacl2cypher"
+description = "Compile SHACL shapes into named Cypher diagnostic queries and validate Neo4j or LadybugDB graphs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-publish = false
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "../../README.md"
+keywords = ["shacl", "cypher", "neo4j", "cli", "validation"]
+categories = ["command-line-utilities", "database"]
 
 [[bin]]
 name = "shacl2cypher"
@@ -12,13 +17,13 @@ path = "src/main.rs"
 
 [features]
 default = []
-neo4j = ["s2c-runner/neo4j"]
-ladybug = ["s2c-runner/ladybug"]
+neo4j = ["shacl2cypher-runner/neo4j"]
+ladybug = ["shacl2cypher-runner/ladybug"]
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive", "env"] }
-s2c-core = { path = "../s2c-core" }
-s2c-runner = { path = "../s2c-runner" }
+shacl2cypher-core = { path = "../s2c-core", version = "0.1.0" }
+shacl2cypher-runner = { path = "../s2c-runner", version = "0.1.0" }
 serde_json = "1.0.151"
 ureq = "2"
 
