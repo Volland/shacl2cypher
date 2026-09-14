@@ -249,6 +249,12 @@
       "accessCount": 1,
       "lastAccessed": 1789427450600,
       "type": "file"
+    },
+    {
+      "path": "LICENSE",
+      "accessCount": 1,
+      "lastAccessed": 1789427889052,
+      "type": "file"
     }
   ],
   "userDirectives": []
