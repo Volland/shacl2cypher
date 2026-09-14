@@ -21,6 +21,7 @@ fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
 
+// @lat: [[tests#Manifest#Compile Outputs]]
 #[test]
 fn compile_writes_manifest_and_queries() {
     let dir = tempfile::tempdir().unwrap();
@@ -79,6 +80,7 @@ fn compile_writes_manifest_and_queries() {
     }
 }
 
+// @lat: [[tests#Runner#Setup Error Exit Codes]]
 #[test]
 fn compile_errors_exit_non_zero() {
     let dir = tempfile::tempdir().unwrap();

@@ -7,3 +7,4 @@ This directory defines the high-level concepts, business logic, and architecture
 - [[dialects]] — IR, Neo4j and LadybugDB backends, schema snapshot, literal and identifier escaping
 - [[architecture]] — Rust crates, input assembly, shapes AST, runner and reports
 - [[testing]] — differential conformance fixtures, W3C suite, snapshots, fuzzing, determinism
+- [[tests]] — test specifications, each referenced by the test that covers it

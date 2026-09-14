@@ -492,6 +492,7 @@ mod tests {
             .collect()
     }
 
+    // @lat: [[tests#Loading#Shapes Split Across Files]]
     #[test]
     fn shape_split_across_files_forms_one_graph() {
         let dir = tempfile::tempdir().unwrap();
@@ -697,6 +698,7 @@ mod tests {
         );
     }
 
+    // @lat: [[tests#Loading#Import Cycles]]
     #[test]
     fn import_cycle_loads_each_file_once() {
         let dir = tempfile::tempdir().unwrap();
@@ -737,6 +739,7 @@ mod tests {
         }
     }
 
+    // @lat: [[tests#Loading#Remote Imports Need Opt-In]]
     #[test]
     fn remote_import_without_opt_in_fails() {
         let dir = tempfile::tempdir().unwrap();

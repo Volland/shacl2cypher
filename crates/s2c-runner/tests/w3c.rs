@@ -141,6 +141,7 @@ fn outcome(config: &Neo4jConfig, test: &W3cTest) -> String {
     )
 }
 
+// @lat: [[tests#Conformance#W3C Core Suite]]
 // @lat: [[testing#W3C Test Suite]]
 #[test]
 fn w3c_core_suite_matches_recorded_status() {

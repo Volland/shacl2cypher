@@ -18,6 +18,7 @@ fn shacl2cypher(dir: &std::path::Path, args: &[&str]) -> (Option<i32>, String) {
     )
 }
 
+// @lat: [[tests#Runner#Compile-Only Builds]]
 #[test]
 #[cfg(not(any(feature = "neo4j", feature = "ladybug")))]
 fn compile_only_builds_report_no_backend() {

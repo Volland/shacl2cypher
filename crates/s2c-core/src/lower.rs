@@ -70,6 +70,7 @@ pub struct LowerErrors(pub Vec<String>);
 
 /// Lowers every targeted shape into rules, collecting every error.
 // @lat: [[semantics#Violations and Conforms#Lowering Rules]]
+// @lat: [[output#Query Granularity]]
 pub fn lower(inputs: Inputs<'_>, options: &LowerOptions) -> Result<Lowered, LowerErrors> {
     let mut lowerer = Lowerer {
         inputs,
@@ -798,6 +799,7 @@ impl<'a> Lowerer<'a> {
                 }
                 items
             }
+            // @lat: [[semantics#Supported Features#Rejected]]
             Constraint::LanguageIn(_) => self.rejected(
                 at,
                 component,
@@ -879,6 +881,7 @@ impl<'a> Lowerer<'a> {
 
     /// Inner rules reported in `details`: a named shape keeps its own rule ids, a
     /// blank shape extends `prefix`.
+    // @lat: [[semantics#Violations and Conforms#Explained Nested Failures]]
     fn details(&mut self, id: &ShapeId, var: Var, prefix: &[String], nodes: bool) -> Vec<Detail> {
         let shapes = self.inputs.shapes;
         let Some(shape) = shapes.get(id) else {
@@ -967,6 +970,7 @@ impl<'a> Lowerer<'a> {
         siblings
     }
 
+    // @lat: [[mapping#IRI Constants]]
     fn membership(
         &mut self,
         terms: &[Term],
@@ -1637,6 +1641,7 @@ ex:AddressShape sh:property [ sh:path ex:zip ; sh:minCount 1 ] .
         assert_eq!(details, vec!["ex:AddressShape/ex:zip/sh:minCount"]);
     }
 
+    // @lat: [[tests#Compilation#Explained Nested Failures]]
     #[test]
     fn logical_branches_extend_detail_ids() {
         let lowered = lower_body(
@@ -1755,6 +1760,7 @@ ex:FatherShape sh:property [ sh:path ex:gender ; sh:hasValue \"male\" ] .
         assert!(message.contains("relationship focus"), "{message}");
     }
 
+    // @lat: [[tests#Compilation#Unsupported Features]]
     #[test]
     fn rejected_features_are_errors_or_unsupported_rules() {
         let cases = [
@@ -1804,6 +1810,7 @@ ex:FatherShape sh:property [ sh:path ex:gender ; sh:hasValue \"male\" ] .
         );
     }
 
+    // @lat: [[tests#Compilation#Schema-Decided Constraints]]
     #[test]
     fn enforced_schema_decides_constraints_and_reports_mismatches() {
         let schema = r#"{"nodeTypes": [{"name": "Person", "properties": [{"name": "name", "type": "STRING"}]}]}"#;

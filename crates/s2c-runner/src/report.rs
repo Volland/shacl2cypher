@@ -323,6 +323,7 @@ mod tests {
         .unwrap()
     }
 
+    // @lat: [[tests#Runner#JUnit Report]]
     #[test]
     fn junit_has_one_test_case_per_rule() {
         let xml = render(&sample_report(), Format::Junit);
@@ -334,6 +335,7 @@ mod tests {
         assert!(xml.contains("<failure type=\"Violation\" message=\"2 violations of sh:minCount\">Person id=p0: r0 failed on p0\nPerson id=p1: r0 failed on p1</failure>"));
     }
 
+    // @lat: [[tests#Runner#SARIF Locations]]
     #[test]
     fn sarif_results_point_at_the_shapes_source() {
         let sarif: Value = serde_json::from_str(&render(&sample_report(), Format::Sarif)).unwrap();

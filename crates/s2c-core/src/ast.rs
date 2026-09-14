@@ -128,10 +128,12 @@ pub enum Target {
     ObjectsOf(NamedNode),
     Node(Term),
     /// `s2c:targetRelationship`: every relationship of this type is a focus.
+    // @lat: [[mapping#Relationship Targets]]
     Relationship(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+// @lat: [[semantics#Supported Features#Tier 2]]
 pub enum Path {
     Predicate(NamedNode),
     Inverse(Box<Path>),
@@ -153,6 +155,7 @@ pub enum NodeKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+// @lat: [[semantics#Supported Features#Tier 1]]
 pub enum Constraint {
     MinCount(u64),
     MaxCount(u64),

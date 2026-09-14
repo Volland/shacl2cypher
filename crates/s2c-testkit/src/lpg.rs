@@ -57,6 +57,7 @@ pub fn neo4j_script(fixture: &Fixture) -> Vec<String> {
 }
 
 /// LadybugDB load script: node table DDL, rel table DDL, node inserts, edge inserts.
+// @lat: [[testing#Conformance Fixtures]]
 pub fn ladybug_script(fixture: &Fixture) -> Result<Vec<String>, String> {
     /// Column name -> type inferred so far (`None` until a typed value is seen).
     type InferredColumns<'a> = BTreeMap<&'a str, Option<ColumnType>>;

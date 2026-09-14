@@ -370,6 +370,7 @@ pub(crate) mod tests {
         }
     }
 
+    // @lat: [[tests#Runner#Summaries Drive Details]]
     #[test]
     fn runs_summaries_and_drills_into_failures() {
         let manifest = manifest(vec![
@@ -410,6 +411,7 @@ pub(crate) mod tests {
         );
     }
 
+    // @lat: [[tests#Runner#Severity Exit Codes]]
     #[test]
     fn warnings_fail_only_at_the_warning_threshold() {
         let manifest = manifest(vec![
@@ -423,6 +425,7 @@ pub(crate) mod tests {
         assert_eq!(exit_code(&report, FailOn::Info), 1);
     }
 
+    // @lat: [[tests#Runner#Query Timeouts]]
     #[test]
     fn timeouts_are_reported_without_aborting() {
         let manifest = manifest(vec![

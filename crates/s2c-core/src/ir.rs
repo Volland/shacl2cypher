@@ -124,6 +124,7 @@ impl Cmp {
 
 /// Where the values of a quantifier come from, relative to a bound variable.
 #[derive(Debug, Clone, PartialEq, Eq)]
+// @lat: [[mapping#Value Sets]]
 pub enum ValueSource {
     /// The bound node itself (constraints declared on node shapes).
     Focus,

@@ -5,6 +5,7 @@
 //! LPG load scripts (for Neo4j and LadybugDB); every engine's violations are then
 //! compared against `expect`.
 
+// @lat: [[testing#Conformance Fixtures]]
 pub mod compare;
 pub mod fixture;
 pub mod lpg;

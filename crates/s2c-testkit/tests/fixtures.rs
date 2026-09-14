@@ -22,6 +22,7 @@ fn fixture_files() -> Vec<PathBuf> {
     files
 }
 
+// @lat: [[tests#Conformance#Fixture Projection]]
 #[test]
 fn all_fixtures_load_and_project() {
     let files = fixture_files();

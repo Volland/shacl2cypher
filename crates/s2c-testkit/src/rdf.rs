@@ -22,6 +22,7 @@ pub fn focus_from_iri<'a>(base: &str, iri: &'a str) -> Option<&'a str> {
 }
 
 /// Serializes the graph as sorted N-Triples so projections are deterministic.
+// @lat: [[testing#Conformance Fixtures]]
 pub fn to_ntriples(fixture: &Fixture) -> String {
     let base = fixture.base.as_str();
     let mut triples = BTreeSet::new();

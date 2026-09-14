@@ -66,6 +66,7 @@ pub struct ResolveOptions {
 #[error("{0}")]
 pub struct MappingError(pub String);
 
+// @lat: [[overview#Target Graph Model]]
 pub struct Resolver<'a> {
     graph: &'a ShapesGraph,
     shapes: &'a Shapes,
@@ -406,6 +407,7 @@ impl<'a> Resolver<'a> {
         Ok(local)
     }
 
+    // @lat: [[mapping#Resolution#Strict Mode]]
     fn check_strict(
         &self,
         resolved: &Resolved,
@@ -479,6 +481,7 @@ pub fn local_name(iri: &str) -> &str {
 }
 
 /// `worksFor` -> `WORKS_FOR`, the relationship-type naming convention.
+// @lat: [[mapping#Resolution#Convention]]
 pub fn upper_snake(name: &str) -> String {
     let mut out = String::with_capacity(name.len() + 4);
     let mut previous_lower_or_digit = false;
@@ -573,6 +576,7 @@ mod tests {
         vec!["Person".into()]
     }
 
+    // @lat: [[tests#Mapping#Convention Names]]
     #[test]
     fn resolves_properties_and_relationships_by_convention() {
         let setup = Setup::new(
@@ -638,6 +642,7 @@ ex:OrgShape sh:targetClass ex:Company ;
         assert_eq!(direction, Direction::Out);
     }
 
+    // @lat: [[tests#Mapping#Schema Disambiguates Paths]]
     #[test]
     fn schema_disambiguates_relationships_from_properties() {
         let schema = r#"{
@@ -669,6 +674,7 @@ ex:OrgShape sh:targetClass ex:Company ;
         );
     }
 
+    // @lat: [[tests#Mapping#Schema Outweighs Hints]]
     #[test]
     fn schema_properties_outweigh_structural_hints() {
         let schema = r#"{
@@ -706,6 +712,7 @@ ex:OrgShape sh:targetClass ex:Company ;
         assert_eq!(path(2), LpgPath::Property(by(Evidence::Schema, "name")));
     }
 
+    // @lat: [[tests#Mapping#Strict Mode]]
     #[test]
     fn strict_mode_rejects_names_chosen_by_convention() {
         let setup = Setup::new(

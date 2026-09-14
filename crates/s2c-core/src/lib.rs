@@ -4,6 +4,7 @@
 //! lowers constraints into a dialect-neutral IR and renders named diagnostic
 //! queries. This crate performs no database I/O.
 
+// @lat: [[architecture#Crates]]
 pub mod ast;
 pub mod compile;
 pub mod cycles;

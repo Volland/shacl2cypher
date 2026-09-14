@@ -1800,6 +1800,7 @@ WHERE v1 IS NOT NULL AND NOT"
         }
     }
 
+    // @lat: [[tests#Compilation#LadybugDB Limits]]
     #[test]
     fn rejects_constructs_ladybugdb_cannot_express() {
         let back_reference =

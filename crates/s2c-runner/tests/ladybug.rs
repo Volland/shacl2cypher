@@ -24,6 +24,7 @@ fn create_database(fixture: &Fixture, dir: &Path) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+// @lat: [[tests#Conformance#Fixtures on LadybugDB]]
 // @lat: [[testing#Runner Integration Tests]]
 #[test]
 fn conformance_fixtures_validate_on_ladybug() {
@@ -37,6 +38,7 @@ fn conformance_fixtures_validate_on_ladybug() {
     });
 }
 
+// @lat: [[tests#Runner#Read-Only LadybugDB]]
 #[test]
 fn databases_are_opened_read_only_and_queries_time_out() {
     let fixture =

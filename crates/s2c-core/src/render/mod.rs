@@ -27,6 +27,7 @@ impl Dialect {
     }
 
     /// Largest variable-length upper bound the database accepts.
+    // @lat: [[dialects#Dialect Backends#Renderer Probes]]
     pub fn max_path_depth(self) -> Option<u32> {
         match self {
             Dialect::Neo4j => None,

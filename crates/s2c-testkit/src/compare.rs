@@ -37,6 +37,7 @@ fn key(v: &Expected) -> Expected {
 }
 
 /// Compares violations as sets of `(rule, focus)`; duplicates, order and details are ignored.
+// @lat: [[testing#Conformance Fixtures]]
 pub fn compare(expected: &[Expected], actual: &[Expected]) -> Diff {
     let expected: BTreeSet<Expected> = expected.iter().map(key).collect();
     let actual: BTreeSet<Expected> = actual.iter().map(key).collect();
@@ -114,6 +115,7 @@ mod tests {
         assert!(compare(&[v("r1", "a")], &[v("r1", "a")]).is_empty());
     }
 
+    // @lat: [[tests#Conformance#Known Differences]]
     #[test]
     fn filters_known_differences_and_checks_details() {
         let known = [KnownDifference {

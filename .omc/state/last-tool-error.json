@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"echo \\\"files without @lat:\\\"; grep -rL '@lat:' crates --include='*.rs' | grep '/src/'; echo \\\"--- index ---\\\"; cat lat.md/lat.md; echo \\\"--- sections without refs ---\\\"; for s in $(grep -h...",
-  "error": "Exit code 1\nfiles without @lat:\ncrates/s2c-testkit/src/lib.rs\ncrates/s2c-testkit/src/compare.rs\ncrates/s2c-testkit/src/fixture.rs\ncrates/s2c-testkit/src/rdf.rs\ncrates/s2c-testkit/src/lpg.rs\ncrates/s2c-testkit/src/bin/s2c-fixture.rs\ncrates/s2c-runner/src/lib.rs\ncrates/s2c-runner/src/executor.rs\ncrates/s2c-core/src/lib.rs\ncrates/s2c-core/src/render/rule.rs\n--- index ---\nThis directory defines the high-level concepts, business logic, and architecture of this project using markdown. It is managed by...",
-  "timestamp": "2026-09-14T23:07:52.127Z",
-  "retry_count": 2
+  "tool_input_preview": "{\"command\":\"for f in */spec.md; do echo \\\"== $f\\\"; grep -n \\\"^# \\\\|^## \\\" $f; done\",\"description\":\"Show delta spec header structure\"}",
+  "error": "Exit code 1\n(eval):1: no matches found: */spec.md",
+  "timestamp": "2026-09-14T23:13:21.786Z",
+  "retry_count": 1
 }

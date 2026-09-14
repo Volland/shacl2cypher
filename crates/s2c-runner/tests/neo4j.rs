@@ -49,6 +49,7 @@ fn load(config: &Neo4jConfig, statements: &[String]) -> Result<(), String> {
     })
 }
 
+// @lat: [[tests#Conformance#Fixtures on Neo4j]]
 // @lat: [[testing#Runner Integration Tests]]
 #[test]
 fn conformance_fixtures_validate_on_neo4j() {
@@ -64,6 +65,7 @@ fn conformance_fixtures_validate_on_neo4j() {
     });
 }
 
+// @lat: [[tests#Runner#Rolled-Back Neo4j Queries]]
 #[test]
 fn queries_roll_back_and_time_out() {
     let Some(config) = config() else {

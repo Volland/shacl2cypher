@@ -269,6 +269,7 @@ mod tests {
         assert_eq!(vias(&cycles[0]), vec!["sh:node"]);
     }
 
+    // @lat: [[tests#Loading#Recursion Is Rejected]]
     #[test]
     fn detects_indirect_recursion_through_logical_and_qualified_constraints() {
         let (_, shapes) = parse(

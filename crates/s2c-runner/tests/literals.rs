@@ -174,6 +174,7 @@ fn literals_round_trip_on_ladybug() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
+// @lat: [[tests#Conformance#Literal Round-Trips]]
 #[cfg(feature = "neo4j")]
 #[test]
 fn literals_round_trip_on_neo4j() {

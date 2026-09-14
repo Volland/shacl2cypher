@@ -10,6 +10,7 @@ pub const ID_PROPERTY: &str = "id";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+// @lat: [[testing#Conformance Fixtures]]
 pub struct Fixture {
     /// Shapes file, resolved relative to the fixture file.
     pub shapes: PathBuf,

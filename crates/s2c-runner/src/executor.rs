@@ -28,6 +28,7 @@ pub enum ExecError {
 }
 
 /// Runs read-only queries and introspects the schema of one database.
+// @lat: [[architecture#Runner]]
 pub trait Executor {
     fn dialect(&self) -> Dialect;
 

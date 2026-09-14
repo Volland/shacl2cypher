@@ -124,6 +124,7 @@ fn input_file_order_does_not_matter() {
     }
 }
 
+// @lat: [[tests#Manifest#Order-Independent Output]]
 #[test]
 fn property_and_triple_order_keep_rules_stable() {
     let dir = tempfile::tempdir().unwrap();

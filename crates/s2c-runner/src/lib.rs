@@ -3,6 +3,7 @@
 //! Backends are optional cargo features so compile-only builds carry no
 //! database client code: `neo4j` (Bolt) and `ladybug` (embedded).
 
+// @lat: [[architecture#Crates]]
 pub mod executor;
 #[cfg(feature = "ladybug")]
 pub mod ladybug;

@@ -35,6 +35,7 @@ fn neo4j_queries() {
     insta::assert_snapshot!("neo4j", cypher(Dialect::Neo4j, None));
 }
 
+// @lat: [[tests#Manifest#Cypher Snapshots]]
 #[test]
 fn ladybug_queries() {
     let schema = std::fs::read_to_string(data("snapshot-schema.json")).unwrap();

@@ -999,6 +999,7 @@ ex:CompanyShape sh:targetClass ex:Company ;
         render_rule(rule).unwrap()
     }
 
+    // @lat: [[tests#Compilation#Unrepresentable Neo4j Identifiers]]
     #[test]
     fn rejects_identifiers_neo4j_would_decode() {
         assert!(unrepresentable_identifier("a\\u0041"));
@@ -1114,6 +1115,7 @@ ex:CompanyShape sh:targetClass ex:Company ;
         assert!(since.detail.contains("{type: type(v0), startKey: s0.`id`"));
     }
 
+    // @lat: [[tests#Compilation#Null-Safe Queries]]
     #[test]
     fn never_emits_bare_comparisons_under_not() {
         for rule in compile(SHAPES) {

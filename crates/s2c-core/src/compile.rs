@@ -181,6 +181,7 @@ pub struct RecommendedIndex {
 
 /// Compiles shapes files into a manifest and `.cypher` file.
 // @lat: [[output#Manifest]]
+// @lat: [[overview#Pipeline]]
 pub fn compile(
     request: &CompileRequest<'_>,
     options: &CompileOptions,
@@ -937,6 +938,7 @@ mod tests {
         assert_eq!(first.cypher, second.cypher);
     }
 
+    // @lat: [[tests#Manifest#Collision Hashes]]
     #[test]
     fn colliding_ids_get_stable_content_hashes() {
         let body = "ex:PersonShape sh:targetClass ex:Person ;
@@ -973,6 +975,7 @@ mod tests {
         assert_eq!(moved_ids, ids);
     }
 
+    // @lat: [[tests#Manifest#Explicit Names]]
     #[test]
     fn explicit_names_override_and_duplicates_fail() {
         let project = Project::new(&[(
@@ -1004,6 +1007,7 @@ ex:B sh:targetClass ex:Company ;
         assert!(message.contains("shapes.ttl:8"), "{message}");
     }
 
+    // @lat: [[tests#Manifest#Fingerprints]]
     #[test]
     fn fingerprints_track_meaning_and_dialect_not_ids() {
         let schema = r#"{"nodeTypes": [{"name": "Person", "properties": [{"name": "id", "type": "STRING"}, {"name": "name", "type": "STRING"}]}]}"#;

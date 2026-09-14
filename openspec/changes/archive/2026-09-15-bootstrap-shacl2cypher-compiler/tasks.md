@@ -78,6 +78,6 @@
 
 ## 10. Documentation
 
-- [ ] 10.1 Add `lat.md/` test spec sections with `require-code-mention` and `@lat:` refs in tests
-- [ ] 10.2 Link core code to `lat.md/` sections with `@lat:` comments; keep `lat check` green
-- [ ] 10.3 Write README with `s2c:` vocabulary reference and compile/validate examples
+- [x] 10.1 Add `lat.md/` test spec sections with `require-code-mention` and `@lat:` refs in tests
+- [x] 10.2 Link core code to `lat.md/` sections with `@lat:` comments; keep `lat check` green
+- [x] 10.3 Write README with `s2c:` vocabulary reference and compile/validate examples

@@ -10,6 +10,7 @@ use s2c_testkit::{fixture::Fixture, rdf};
 
 const USAGE: &str = "usage: s2c-fixture oracle-input <fixture.yaml>";
 
+// @lat: [[testing#Conformance Fixtures]]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let [_, command, path] = args.as_slice() else {

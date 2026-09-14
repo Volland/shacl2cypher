@@ -1,5 +1,6 @@
 /// Names, keys and message a rendered rule reports in its rows.
 #[derive(Debug, Clone, Copy)]
+// @lat: [[output#Focus Identity]]
 pub struct RuleMeta<'a> {
     pub name: &'a str,
     pub shape: &'a str,
@@ -19,6 +20,8 @@ pub struct RuleMeta<'a> {
 /// The detail and summary query of one rule.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rendered {
+    // @lat: [[output#Query Variants#Detail]]
     pub detail: String,
+    // @lat: [[output#Query Variants#Summary]]
     pub summary: String,
 }

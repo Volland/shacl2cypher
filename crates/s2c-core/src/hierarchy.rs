@@ -180,6 +180,7 @@ mod tests {
             .collect()
     }
 
+    // @lat: [[tests#Mapping#Subclass Expansion]]
     #[test]
     fn expands_transitive_subclasses_in_iri_order() {
         let shapes = load(

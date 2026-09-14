@@ -324,6 +324,7 @@ mod tests {
         );
     }
 
+    // @lat: [[tests#Compilation#Regex Normalization]]
     #[test]
     fn expands_class_subtraction_to_explicit_ranges() {
         let regex = parse("[a-z-[aeiou]]+");

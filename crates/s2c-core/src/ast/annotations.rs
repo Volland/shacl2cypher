@@ -407,6 +407,7 @@ ex:Company s2c:key \"id\" .
             .contains("s2c:key is not allowed on a class or predicate IRI"));
     }
 
+    // @lat: [[tests#Loading#Conflicting Settings List Every Location]]
     #[test]
     fn conflicting_single_valued_settings_across_files_list_both_locations() {
         let cases = [
