@@ -56,7 +56,7 @@ Rendering relies on the snapshot's column types. Each value binding knows its co
   - A rule-level count over one relationship route is hoisted into `OPTIONAL MATCH … count(DISTINCT …)`.
   - Property counts use `size(list_distinct(…))`.
   - Nested counts support existence checks, or `COUNT { MATCH }` over single hops.
-- `sh:xone` renders as a sum of `CASE` terms to avoid nested lambdas. `sh:closed` requires every declared column outside the allowed keys to be NULL. `sh:lessThan` over list properties and regex back-references are rejected.
+- `sh:xone` renders as a sum of `CASE` terms to avoid nested lambdas. `sh:closed` requires every declared column outside the allowed keys to be NULL, and no relationship in a rel table that leaves the focus labels and is not allowed. `sh:lessThan` over list properties and regex back-references are rejected.
 - Rows use `label()` and `CAST(id(…) AS STRING)`. Detail queries end with `LIMIT $limit`; summaries slice `collect(…)` with `list_slice(…, 1, $sampleSize)`.
 
 Spike findings (Rust crate `lbug` 0.20.4), which renderers must respect:
@@ -102,5 +102,6 @@ All shape constants are inlined through a single typed literal renderer per dial
 
 - String escaping, number formatting (NaN/Infinity rejected) and temporal constructors live in one renderer; building literals ad hoc with string formatting is forbidden.
 - Identifiers are backticked with inner backticks doubled; names a target cannot represent are compile errors.
+- Neo4j decodes `\uXXXX` escapes even inside backticks, and no escaping writes them literally, so a Neo4j identifier containing such a sequence fails rendering.
 - Runtime parameters are reserved for execution controls: `$limit`, `$sampleSize`.
 - `sh:message` placeholders (`{$this}`, `{?value}`) are substituted in Cypher at runtime so messages carry actual values.

@@ -42,11 +42,66 @@ Shape recognition follows SHACL. A node is a shape if it is typed `sh:NodeShape`
 - Conflicting values for single-valued settings are caught by the same single-value check over the union graph, so settings split across files report every location.
 - Recursive shape references are detected over `sh:property`, `sh:node`, `sh:not`, `sh:and`/`sh:or`/`sh:xone` and `sh:qualifiedValueShape` edges. Each group of mutually recursive shapes is reported once, as its shortest cycle starting from the group's smallest shape id, with the location of every step, because inlining `conforms` cannot terminate on a cycle ([[semantics#Violations and Conforms]]).
 
+Multi-valued settings (`sh:property`, repeated constraints, targets, messages) are ordered by content after parsing: named shapes by IRI, blank shapes by their expanded content. Source positions and blank-node labels never influence compiled output. RDF lists keep their order.
+
+## CLI
+
+`shacl2cypher compile` turns shapes files into `manifest.json` and `queries.cypher` in the `-o` directory (default: the working directory).
+
+Options: `--dialect neo4j|ladybug` (required), `--schema`, repeatable `--ontology`, `--node-key`, `--neo4j-labels explicit|inherited`, `--strict`, `--lenient`, `--verbose`, `--max-path-depth` (default 10), `--allow-remote-imports`, `--fail-on-schema-mismatch`.
+
+- Manifest input paths are relative to the working directory.
+- Compile errors print one `error:` line per problem and exit 1, writing no files. Usage errors exit 2.
+- Static diagnostics print as `warning: file:line: code: message` and do not fail the build without `--fail-on-schema-mismatch`.
+- Remote imports are fetched over HTTP(S) by the CLI (30 s timeout, 16 MB cap), so the core stays free of network I/O.
+
 ## Runner
 
-The runner compiles in memory, executes summary queries, drills into failing rules with detail queries, and produces reports.
+The runner executes a manifest's queries against Neo4j or LadybugDB, drills into failing rules, and reports results for humans and CI.
 
-- Reports: terminal table, JSON, JUnit (one test case per rule) and SARIF (results linked to `.ttl` spans).
-- Exit code by severity threshold: `--fail-on violation|warning|info`.
-- Per-query `--timeout`; timeouts produce `status: timeout` results, not crashes. Per-rule timings appear in reports.
+- `shacl2cypher validate` compiles shapes in memory for the connected dialect, or loads `--manifest`. A manifest compiled for another dialect is rejected.
+- On LadybugDB without `--schema`, the schema is dumped from the database before compiling.
 - LadybugDB is embedded: the runner opens database files directly and may conflict with an application holding the lock.
+
+### Validate Flow
+
+Every rule with queries runs its summary query; rules with violations then run their detail query. Rules without queries are reported from their manifest status.
+
+- Parameters: `$limit` from `--limit` (default 100, `0` lists every violation, sent as the largest 64-bit integer) and `$sampleSize` from `--sample-size` (default 5).
+- `--timeout <seconds>` bounds each query. A timed-out summary gives `status: timeout`; a failed query gives `status: error`. Remaining rules still run.
+- A detail query that times out or fails after a positive count keeps `status: failed`, with a `statusReason` saying the violations are not listed.
+- Statuses: `passed`, `failed`, `timeout`, `error`, `skipped` (deactivated, unsupported, schema-mismatch), `guaranteed-by-schema`. Each rule records `durationMs`.
+- The report has `conforms` (no rule found violations) and `complete` (every query finished).
+
+### Exit Codes
+
+The exit code tells CI whether rules at or above `--fail-on` failed, and whether the result can be trusted.
+
+- `0`: no rule at or above `--fail-on` (`violation` default, `warning`, `info`) has violations, and every query completed.
+- `1`: a rule at or above the threshold has violations. Custom severities count as violations.
+- `2`: usage or setup errors: bad arguments, compile errors, unreachable databases, or no backend compiled in.
+- `3`: no failing rule, but a query timed out or failed, so conformance is unknown.
+
+### Reports
+
+`--format` selects a terminal table, JSON, JUnit XML or SARIF 2.1.0; `-o` writes the report to a file instead of stdout.
+
+- Table: one line per rule with status, severity, count and time, up to 10 violations each, then totals.
+- JSON: the full report, including `durationMs` per rule and every detail row.
+- JUnit: one test case per rule. Violations are failures, timeouts and query errors are errors, and skipped rules are skipped. Cases carry the shapes file and line.
+- SARIF: every rule is a tool rule descriptor; each detail row is a result at the constraint's shapes file and line, with focus, value and details as properties. Timeouts and errors become tool execution notifications.
+
+### Backends
+
+Backends are cargo features of `s2c-runner` and `s2c-cli`; without them `validate` and `schema dump` report that no database backend is available.
+
+- `neo4j` uses `neo4rs` over Bolt (`--connect`, `--user`/`NEO4J_USER`, `--password`/`NEO4J_PASSWORD`, `--database`). The driver is pinned to `0.9.0-rc.10`: 0.8 decodes the integers −16…−1 as 240…255, which the literal fuzz test caught. Read-mode transactions are unstable in that driver, so every query runs in an explicit transaction that is always rolled back, and nothing a query does persists. A timed-out query abandons its connection pool. Rows are read as Bolt values and converted to JSON explicitly, so report values never depend on the driver's serde mapping.
+- `ladybug` uses the embedded `lbug` crate (`--ladybug <file>`). Databases open with `read_only(true)`, and a missing file is an error rather than a new database. Timeouts use the connection's native query timeout.
+
+### Schema Dump
+
+`shacl2cypher schema dump` writes a snapshot that `compile --schema` accepts unchanged; both backends emit neutral type names.
+
+- LadybugDB: `show_tables`, `table_info` and `show_connection` give node and rel tables, declared column types and FROM/TO pairs. `TIMESTAMP` becomes `LOCAL_DATETIME`, `BOOL` becomes `BOOLEAN`, `T[]` becomes `LIST<T>`, and unknown types become `ANY`.
+- Neo4j: `db.labels`, `db.relationshipTypes` and the `db.schema.nodeTypeProperties`/`relTypeProperties` procedures give observed property types. Several types, or differing types across label combinations, become `ANY`.
+- Neo4j endpoints come from one distinct scan per relationship type (`MATCH (a)-[:T]->(b)` over label pairs). `db.schema.visualization` returns virtual endpoints without labels. The scan reads every relationship, and types without relationships are omitted.

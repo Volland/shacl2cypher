@@ -1,0 +1,13 @@
+# sh:in over strings and integers; sh:hasValue detects absence and missing members.
+shapes: in-has-value.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {status: "active", level: 2, tags: ["vip", "x"]}}
+    - {id: p2, labels: [Person], props: {status: "open", level: 4, tags: ["x"]}}
+    - {id: p3, labels: [Person]}
+    - {id: p4, labels: [Person], props: {status: "closed", tags: ["vip"]}}
+expect:
+  - {rule: "ex:PersonShape/ex:status/sh:in", focus: p2}
+  - {rule: "ex:PersonShape/ex:level/sh:in", focus: p2}
+  - {rule: "ex:PersonShape/ex:tags/sh:hasValue", focus: p2}
+  - {rule: "ex:PersonShape/ex:tags/sh:hasValue", focus: p3}

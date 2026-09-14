@@ -16,11 +16,15 @@ Without annotations or schema evidence, class local names SHALL map to labels, p
 - **THEN** the rule traverses outgoing relationships of type `WORKS_FOR` to nodes labeled `Company`
 
 ### Requirement: Relationship detection rule
-A path SHALL be treated as a relationship only if its property shape declares `sh:class`, `sh:node`, or `sh:nodeKind` of `sh:IRI`, `sh:BlankNode` or `sh:BlankNodeOrIRI`, or is annotated `s2c:relationship`, or the schema snapshot contains a matching relationship type and no matching property; otherwise it SHALL be a property.
+A path SHALL be treated as a relationship only if it is annotated `s2c:relationship`, or the schema snapshot contains a matching relationship type and no matching property, or its property shape declares `sh:class`, `sh:node`, or `sh:nodeKind` of `sh:IRI`, `sh:BlankNode` or `sh:BlankNodeOrIRI` and the schema snapshot does not declare a matching property without a matching relationship type; otherwise it SHALL be a property.
 
 #### Scenario: Schema disambiguates
 - **WHEN** a property shape has `sh:path ex:manager ; sh:minCount 1` with no `sh:class` and the schema snapshot has relationship type `MANAGER` from `Person` but no `manager` property
 - **THEN** the rule counts `MANAGER` relationships
+
+#### Scenario: Schema outweighs hints
+- **WHEN** a property shape has `sh:path ex:name ; sh:nodeKind sh:IRI` and the schema snapshot declares a `name` property on `Person` but no `NAME` relationship type
+- **THEN** the path is the `name` property and every value violates `sh:nodeKind`
 
 ### Requirement: Annotation overrides
 `s2c:label`, `s2c:property`, `s2c:relationship` and `s2c:direction` annotations on class IRIs, predicate IRIs, or shapes SHALL override convention, with shape-level annotations taking precedence over IRI-level ones.

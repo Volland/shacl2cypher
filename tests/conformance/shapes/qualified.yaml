@@ -1,0 +1,25 @@
+# Qualified value shapes with sibling-disjoint counting.
+shapes: qualified.ttl
+graph:
+  nodes:
+    - {id: h1, labels: [Hand]}
+    - {id: h2, labels: [Hand]}
+    - {id: h3, labels: [Hand]}
+    - {id: t1, labels: [Thumb]}
+    - {id: t2, labels: [Thumb]}
+    - {id: f1, labels: [Finger]}
+    - {id: f2, labels: [Finger]}
+    - {id: f3, labels: [Finger]}
+    - {id: f4, labels: [Finger]}
+    - {id: f5, labels: [Finger]}
+  edges:
+    - {from: h1, to: t1, pred: digit}
+    - {from: h1, to: f1, pred: digit}
+    - {from: h1, to: f2, pred: digit}
+    - {from: h2, to: f3, pred: digit}
+    - {from: h2, to: f4, pred: digit}
+    - {from: h2, to: f5, pred: digit}
+    - {from: h3, to: t2, pred: digit}
+expect:
+  - {rule: "ex:HandShape/ex:digit/sh:qualifiedMinCount", focus: h2}
+  - {rule: "ex:HandShape/ex:digit/sh:qualifiedMaxCount", focus: h2}

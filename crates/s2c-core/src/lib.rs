@@ -5,6 +5,7 @@
 //! queries. This crate performs no database I/O.
 
 pub mod ast;
+pub mod compile;
 pub mod cycles;
 pub mod datatypes;
 pub mod hierarchy;

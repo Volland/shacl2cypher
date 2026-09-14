@@ -22,6 +22,12 @@ pub struct Fixture {
     pub graph: Graph,
     #[serde(default)]
     pub expect: Vec<Expected>,
+    /// Violations an engine is known to report differently, with the reason.
+    #[serde(default)]
+    pub known_differences: Vec<KnownDifference>,
+    /// Why pySHACL cannot validate this fixture at all, e.g. unsupported regex syntax.
+    #[serde(default)]
+    pub oracle_skip: Option<String>,
     /// Free-form notes, e.g. known disagreements between reference engines.
     #[serde(default)]
     pub notes: Option<String>,
@@ -88,7 +94,24 @@ pub enum Value {
 #[serde(deny_unknown_fields)]
 pub struct Expected {
     pub rule: String,
+    /// Fixture node id, or `from->to` for a relationship focus.
     pub focus: String,
+    /// Rule ids of failed inner constraints; checked on LPG engines when given.
+    #[serde(default)]
+    pub details: Option<Vec<String>>,
+}
+
+/// Engines a fixture can run on.
+pub const ENGINES: &[&str] = &["pyshacl", "neo4j", "ladybug"];
+
+/// A violation one engine reports differently from `expect`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnownDifference {
+    pub engine: String,
+    pub rule: String,
+    pub focus: String,
+    pub reason: String,
 }
 
 impl Fixture {
@@ -136,11 +159,29 @@ impl Fixture {
                 }
             }
         }
+        let known_focus = |focus: &str| match focus.split_once("->") {
+            Some((from, to)) => ids.contains(from) && ids.contains(to),
+            None => ids.contains(focus),
+        };
         for expected in &self.expect {
-            if !ids.contains(expected.focus.as_str()) {
+            if !known_focus(&expected.focus) {
                 return Err(format!(
                     "expected violation of `{}` has unknown focus `{}`",
                     expected.rule, expected.focus
+                ));
+            }
+        }
+        for difference in &self.known_differences {
+            if !ENGINES.contains(&difference.engine.as_str()) {
+                return Err(format!(
+                    "known difference names unknown engine `{}`",
+                    difference.engine
+                ));
+            }
+            if !known_focus(&difference.focus) {
+                return Err(format!(
+                    "known difference has unknown focus `{}`",
+                    difference.focus
                 ));
             }
         }

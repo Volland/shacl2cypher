@@ -1,0 +1,12 @@
+# Values that cannot be compared with the bound violate the range constraint.
+shapes: ranges-wrong-type.ttl
+dialects: [neo4j]
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {age: "abc", born: "2000-01-01"}}
+    - {id: p2, labels: [Person], props: {age: 5, born: {date: "2000-01-01"}}}
+    - {id: p3, labels: [Person], props: {age: true}}
+expect:
+  - {rule: "ex:PersonShape/ex:age/sh:minInclusive", focus: p1}
+  - {rule: "ex:PersonShape/ex:born/sh:maxInclusive", focus: p1}
+  - {rule: "ex:PersonShape/ex:age/sh:minInclusive", focus: p3}

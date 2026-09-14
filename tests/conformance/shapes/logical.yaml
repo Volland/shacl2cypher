@@ -1,0 +1,15 @@
+# Node-level sh:or, sh:xone, sh:not and sh:and over blank shapes; `details` names the
+# failed branch constraints.
+shapes: logical.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {email: "a", ssn: "1", first: "A", last: "B", banned: false}}
+    - {id: p2, labels: [Person], props: {ssn: "1", passport: "P", first: "A"}}
+    - {id: p3, labels: [Person], props: {phone: "1", banned: true, last: "B"}}
+expect:
+  - {rule: "ex:ContactShape/sh:or", focus: p2, details: ["ex:ContactShape/sh:or[0]/ex:email/sh:minCount", "ex:ContactShape/sh:or[1]/ex:phone/sh:minCount"]}
+  - {rule: "ex:ContactShape/sh:xone", focus: p2}
+  - {rule: "ex:ContactShape/sh:xone", focus: p3, details: ["ex:ContactShape/sh:xone[0]/ex:ssn/sh:minCount", "ex:ContactShape/sh:xone[1]/ex:passport/sh:minCount"]}
+  - {rule: "ex:ContactShape/sh:not", focus: p3}
+  - {rule: "ex:NameShape/sh:and", focus: p2, details: ["ex:NameShape/sh:and[1]/ex:last/sh:minCount"]}
+  - {rule: "ex:NameShape/sh:and", focus: p3, details: ["ex:NameShape/sh:and[0]/ex:first/sh:minCount"]}

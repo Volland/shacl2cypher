@@ -1,0 +1,18 @@
+# sh:datatype against untyped Neo4j properties: wrong scalar types violate, list
+# elements are checked one by one, absent values are vacuously fine.
+# LadybugDB columns are typed, so the same data cannot be loaded there.
+shapes: datatype-neo4j.ttl
+dialects: [neo4j]
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {age: 30, name: "Ann", born: {date: "2000-01-01"}, active: true}}
+    - {id: p2, labels: [Person], props: {age: "30", name: 5, born: "2000-01-01", active: "true"}}
+    - {id: p3, labels: [Person], props: {age: 3.5}}
+    - {id: p4, labels: [Person]}
+    - {id: p5, labels: [Person], props: {age: [1, 2], name: ["a", "b"]}}
+expect:
+  - {rule: "ex:PersonShape/ex:age/sh:datatype", focus: p2}
+  - {rule: "ex:PersonShape/ex:name/sh:datatype", focus: p2}
+  - {rule: "ex:PersonShape/ex:born/sh:datatype", focus: p2}
+  - {rule: "ex:PersonShape/ex:active/sh:datatype", focus: p2}
+  - {rule: "ex:PersonShape/ex:age/sh:datatype", focus: p3}

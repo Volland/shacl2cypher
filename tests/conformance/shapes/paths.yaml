@@ -1,0 +1,35 @@
+# Sequence, inverse, alternative, one-or-more, zero-or-more (including the focus
+# itself) and zero-or-one paths.
+shapes: paths.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {email: "a"}}
+    - {id: p2, labels: [Person], props: {phone: "2"}}
+    - {id: p3, labels: [Person]}
+    - {id: m1, labels: [Person], props: {email: "m"}}
+    - {id: m2, labels: [Person], props: {email: "n"}}
+    - {id: c1, labels: [Company], props: {name: "Acme"}}
+    - {id: c2, labels: [Company]}
+    - {id: r1, labels: [Robot]}
+  edges:
+    - {from: p1, to: c1, pred: worksFor}
+    - {from: p2, to: c2, pred: worksFor}
+    - {from: m1, to: c1, pred: worksFor}
+    - {from: m2, to: c1, pred: worksFor}
+    - {from: m1, to: p1, pred: manages}
+    - {from: m2, to: p1, pred: manages}
+    - {from: p1, to: p2, pred: reportsTo}
+    - {from: p2, to: p3, pred: reportsTo}
+    - {from: p3, to: r1, pred: reportsTo}
+    - {from: p1, to: p2, pred: mentor}
+    - {from: p2, to: r1, pred: mentor}
+expect:
+  - {rule: "ex:PersonShape/ex:worksFor/ex:name/sh:minCount", focus: p2}
+  - {rule: "ex:PersonShape/ex:worksFor/ex:name/sh:minCount", focus: p3}
+  - {rule: "ex:PersonShape/^ex:manages/sh:maxCount", focus: p1}
+  - {rule: "ex:PersonShape/ex:email|ex:phone/sh:minCount", focus: p3}
+  - {rule: "ex:PersonShape/ex:reportsTo+/sh:class", focus: p1}
+  - {rule: "ex:PersonShape/ex:reportsTo+/sh:class", focus: p2}
+  - {rule: "ex:PersonShape/ex:reportsTo+/sh:class", focus: p3}
+  - {rule: "ex:PersonShape/ex:reportsTo*/sh:maxCount", focus: p1}
+  - {rule: "ex:PersonShape/ex:mentor?/sh:class", focus: p2}

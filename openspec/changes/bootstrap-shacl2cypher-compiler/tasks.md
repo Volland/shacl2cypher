@@ -52,29 +52,29 @@
 
 ## 7. Manifest and CLI compile
 
-- [ ] 7.1 Implement structural rule ids, collision hashing, `s2c:name` overrides, duplicate detection
-- [ ] 7.2 Implement canonical constraint form and fingerprints
-- [ ] 7.3 Implement cost classification and recommended indexes
-- [ ] 7.4 Emit manifest (provenance, rules, statuses, static diagnostics) and `.cypher` file deterministically
-- [ ] 7.5 Implement `shacl2cypher compile` CLI with all options (`--dialect`, `--schema`, `--ontology`, `--node-key`, `--strict`, `--lenient`, `--verbose`, `-o`)
+- [x] 7.1 Implement structural rule ids, collision hashing, `s2c:name` overrides, duplicate detection
+- [x] 7.2 Implement canonical constraint form and fingerprints
+- [x] 7.3 Implement cost classification and recommended indexes
+- [x] 7.4 Emit manifest (provenance, rules, statuses, static diagnostics) and `.cypher` file deterministically
+- [x] 7.5 Implement `shacl2cypher compile` CLI with all options (`--dialect`, `--schema`, `--ontology`, `--node-key`, `--strict`, `--lenient`, `--verbose`, `-o`)
 
 ## 8. Runner
 
-- [ ] 8.1 Implement Neo4j executor (Bolt) with timeouts and read-only sessions
-- [ ] 8.2 Implement LadybugDB executor (embedded, read-only open)
-- [ ] 8.3 Implement `schema dump` for both backends
-- [ ] 8.4 Implement `validate` flow: summaries, drill-down details, timings, `--fail-on` exit codes
-- [ ] 8.5 Implement table, JSON, JUnit and SARIF reporters
+- [x] 8.1 Implement Neo4j executor (Bolt) with timeouts and read-only sessions
+- [x] 8.2 Implement LadybugDB executor (embedded, read-only open)
+- [x] 8.3 Implement `schema dump` for both backends
+- [x] 8.4 Implement `validate` flow: summaries, drill-down details, timings, `--fail-on` exit codes
+- [x] 8.5 Implement table, JSON, JUnit and SARIF reporters
 
 ## 9. Conformance and quality
 
-- [ ] 9.1 Write fixtures for every Tier 1 constraint including null/absent/empty-list/wrong-type cases
-- [ ] 9.2 Write fixtures for Tier 2 logical, qualified and path constraints including `details`
-- [ ] 9.3 Write regex fixtures (anchoring, flags, Unicode classes, inexpressible constructs)
-- [ ] 9.4 Integrate filtered W3C SHACL Core test suite with skip reasons
-- [ ] 9.5 Add literal/identifier round-trip fuzz tests on both databases
-- [ ] 9.6 Add determinism tests (repeat compile, shuffled input order, reordered properties)
-- [ ] 9.7 Add `insta` snapshots of generated Cypher per dialect
+- [x] 9.1 Write fixtures for every Tier 1 constraint including null/absent/empty-list/wrong-type cases
+- [x] 9.2 Write fixtures for Tier 2 logical, qualified and path constraints including `details`
+- [x] 9.3 Write regex fixtures (anchoring, flags, Unicode classes, inexpressible constructs)
+- [x] 9.4 Integrate filtered W3C SHACL Core test suite with skip reasons
+- [x] 9.5 Add literal/identifier round-trip fuzz tests on both databases
+- [x] 9.6 Add determinism tests (repeat compile, shuffled input order, reordered properties)
+- [x] 9.7 Add `insta` snapshots of generated Cypher per dialect
 
 ## 10. Documentation
 

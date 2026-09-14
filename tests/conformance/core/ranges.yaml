@@ -1,0 +1,15 @@
+# Range constraints on integers, doubles against decimal and integer bounds, and dates.
+shapes: ranges.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {age: 0, score: 1.5, born: {date: "2000-01-01"}}}
+    - {id: p2, labels: [Person], props: {age: -1, score: 0.0, born: {date: "2021-01-01"}}}
+    - {id: p3, labels: [Person], props: {age: 150, score: 10.5, born: {date: "1900-01-01"}}}
+    - {id: p4, labels: [Person]}
+expect:
+  - {rule: "ex:PersonShape/ex:age/sh:minInclusive", focus: p2}
+  - {rule: "ex:PersonShape/ex:score/sh:minExclusive", focus: p2}
+  - {rule: "ex:PersonShape/ex:born/sh:maxInclusive", focus: p2}
+  - {rule: "ex:PersonShape/ex:age/sh:maxExclusive", focus: p3}
+  - {rule: "ex:PersonShape/ex:score/sh:maxInclusive", focus: p3}
+  - {rule: "ex:PersonShape/ex:born/sh:minExclusive", focus: p3}

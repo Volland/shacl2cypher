@@ -9,6 +9,7 @@ pub mod compare;
 pub mod fixture;
 pub mod lpg;
 pub mod rdf;
+pub mod w3c;
 
 /// Directory holding the repository's conformance fixtures.
 pub fn fixtures_dir() -> std::path::PathBuf {

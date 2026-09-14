@@ -1,0 +1,13 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:PersonShape sh:targetClass ex:Person ;
+    sh:property [ sh:path ( ex:worksFor ex:name ) ; sh:minCount 1 ] ;
+    sh:property [ sh:path [ sh:inversePath ex:manages ] ; sh:maxCount 1 ] ;
+    sh:property [ sh:path [ sh:alternativePath ( ex:email ex:phone ) ] ; sh:minCount 1 ] ;
+    sh:property [ sh:path [ sh:oneOrMorePath ex:reportsTo ] ; sh:class ex:Person ] ;
+    sh:property [ sh:path [ sh:zeroOrMorePath ex:reportsTo ] ; sh:maxCount 3 ] ;
+    sh:property [ sh:path [ sh:zeroOrOnePath ex:mentor ] ; sh:class ex:Person ] .

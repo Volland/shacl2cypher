@@ -234,7 +234,7 @@ impl Shapes {
             problems: Vec::new(),
         };
         let ids = builder.shape_ids();
-        let shapes: Vec<Shape> = ids.iter().map(|id| builder.shape(id)).collect();
+        let mut shapes: Vec<Shape> = ids.iter().map(|id| builder.shape(id)).collect();
         let iri_annotations = builder.iri_annotations(&shapes);
         if !builder.problems.is_empty() {
             let mut problems = builder.problems;
@@ -251,6 +251,7 @@ impl Shapes {
                 .collect();
             return Err(AstErrors { messages });
         }
+        canonical_order(&mut shapes);
         let index = shapes
             .iter()
             .enumerate()
@@ -282,6 +283,105 @@ impl Shapes {
     /// Annotations declared on a class or predicate IRI that is not itself a shape.
     pub fn iri_annotations(&self, iri: NamedNodeRef<'_>) -> Option<&Annotations> {
         self.iri_annotations.get(&iri.into_owned())
+    }
+}
+
+/// Orders every multi-valued shape setting by content instead of source position,
+/// so reordered triples or renamed blank nodes never change the compiled output.
+/// RDF lists (`sh:or`, `sh:in`, …) keep their order.
+// @lat: [[architecture#Shapes AST]]
+fn canonical_order(shapes: &mut [Shape]) {
+    let keys: HashMap<ShapeId, String> = {
+        let by_id: HashMap<&ShapeId, &Shape> = shapes.iter().map(|s| (&s.id, s)).collect();
+        shapes
+            .iter()
+            .map(|s| {
+                (
+                    s.id.clone(),
+                    canonical_shape(&s.id, &by_id, &mut Vec::new()),
+                )
+            })
+            .collect()
+    };
+    let key_of = |id: &ShapeId| match id {
+        NamedOrBlankNode::NamedNode(iri) => iri.to_string(),
+        NamedOrBlankNode::BlankNode(_) => keys.get(id).cloned().unwrap_or_else(|| "[]".into()),
+    };
+    for shape in shapes.iter_mut() {
+        shape.properties.sort_by_cached_key(|p| key_of(&p.value));
+        shape
+            .constraints
+            .sort_by_cached_key(|c| constraint_text(&c.value, &mut |s| key_of(s)));
+        shape
+            .targets
+            .sort_by_cached_key(|t| format!("{:?}", t.value));
+        shape.messages.sort_by_cached_key(|m| m.to_string());
+    }
+}
+
+/// A blank shape's content with nested shapes expanded; named shapes are their IRI.
+fn canonical_shape(
+    id: &ShapeId,
+    by_id: &HashMap<&ShapeId, &Shape>,
+    seen: &mut Vec<ShapeId>,
+) -> String {
+    if let NamedOrBlankNode::NamedNode(iri) = id {
+        return iri.to_string();
+    }
+    let Some(shape) = by_id.get(id) else {
+        return "[]".into();
+    };
+    if seen.contains(id) {
+        return "[cycle]".into();
+    }
+    seen.push(id.clone());
+    let mut properties: Vec<String> = shape
+        .properties
+        .iter()
+        .map(|p| canonical_shape(&p.value, by_id, seen))
+        .collect();
+    properties.sort();
+    let mut constraints: Vec<String> = shape
+        .constraints
+        .iter()
+        .map(|c| constraint_text(&c.value, &mut |s| canonical_shape(s, by_id, seen)))
+        .collect();
+    constraints.sort();
+    seen.pop();
+    let mut targets: Vec<String> = shape
+        .targets
+        .iter()
+        .map(|t| format!("{:?}", t.value))
+        .collect();
+    targets.sort();
+    let mut messages: Vec<String> = shape.messages.iter().map(|m| m.to_string()).collect();
+    messages.sort();
+    format!(
+        "[path={:?};targets={targets:?};constraints={constraints:?};properties={properties:?};severity={:?};messages={messages:?};deactivated={}]",
+        shape.path.as_ref().map(|p| &p.value),
+        shape.severity,
+        shape.deactivated
+    )
+}
+
+fn constraint_text(constraint: &Constraint, shape: &mut dyn FnMut(&ShapeId) -> String) -> String {
+    let mut list = |items: &[ShapeId]| items.iter().map(&mut *shape).collect::<Vec<_>>();
+    match constraint {
+        Constraint::And(items) => format!("And({:?})", list(items)),
+        Constraint::Or(items) => format!("Or({:?})", list(items)),
+        Constraint::Xone(items) => format!("Xone({:?})", list(items)),
+        Constraint::Node(s) => format!("Node({:?})", list(std::slice::from_ref(s))),
+        Constraint::Not(s) => format!("Not({:?})", list(std::slice::from_ref(s))),
+        Constraint::QualifiedValueShape {
+            shape: s,
+            min_count,
+            max_count,
+            disjoint,
+        } => format!(
+            "QualifiedValueShape({:?},{min_count:?},{max_count:?},{disjoint})",
+            list(std::slice::from_ref(s))
+        ),
+        other => format!("{other:?}"),
     }
 }
 
@@ -1094,12 +1194,12 @@ mod tests {
         assert_eq!(
             values(&name.constraints),
             vec![
-                Constraint::MinCount(1),
-                Constraint::MaxCount(1),
                 Constraint::Datatype(xsd::STRING.into_owned()),
+                Constraint::MaxCount(1),
+                Constraint::MinCount(1),
             ]
         );
-        assert_eq!(name.constraints[0].location.line, 12);
+        assert_eq!(name.constraints[2].location.line, 12);
     }
 
     #[test]
@@ -1202,9 +1302,9 @@ mod tests {
         assert_eq!(
             values(&s.targets),
             vec![
-                Target::SubjectsOf(ex("knows")),
-                Target::ObjectsOf(ex("knows")),
                 Target::Node(ex("alice").into()),
+                Target::ObjectsOf(ex("knows")),
+                Target::SubjectsOf(ex("knows")),
             ]
         );
         assert!(matches!(

@@ -1,0 +1,13 @@
+# XSD-only regex syntax: the q flag, Unicode categories, XML name escapes and
+# character class subtraction.
+shapes: regex-xsd.ttl
+oracle_skip: Python's re (used by pySHACL) has no \p{..}, \i/\c, class subtraction or q flag.
+graph:
+  nodes:
+    - {id: t1, labels: [Text], props: {g: "xa.cx", h: "Ölga", i: "_name-1", j: "bcd"}}
+    - {id: t2, labels: [Text], props: {g: "abc", h: "olga", i: "1name", j: "bad"}}
+expect:
+  - {rule: "ex:TextShape/ex:g/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:h/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:i/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:j/sh:pattern", focus: t2}

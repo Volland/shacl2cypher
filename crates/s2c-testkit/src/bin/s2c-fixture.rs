@@ -36,6 +36,13 @@ fn main() {
         "notes": fixture.notes,
         "ntriples": rdf::to_ntriples(&fixture),
         "expect": expect,
+        "oracleSkip": fixture.oracle_skip,
+        "knownDifferences": fixture
+            .known_differences
+            .iter()
+            .filter(|k| k.engine == "pyshacl")
+            .map(|k| serde_json::json!({"rule": k.rule, "focus": k.focus, "reason": k.reason}))
+            .collect::<Vec<_>>(),
     });
     println!("{out}");
 }

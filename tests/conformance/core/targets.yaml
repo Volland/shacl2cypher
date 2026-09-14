@@ -1,0 +1,16 @@
+# Implicit class targets, sh:targetSubjectsOf and sh:targetObjectsOf.
+shapes: targets.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "a", salary: 10}}
+    - {id: p2, labels: [Person]}
+    - {id: p3, labels: [Person], props: {name: "b"}}
+    - {id: c1, labels: [Company], props: {name: "Acme"}}
+    - {id: c2, labels: [Company]}
+  edges:
+    - {from: p1, to: c1, pred: worksFor}
+    - {from: p2, to: c2, pred: worksFor}
+expect:
+  - {rule: "ex:Person/ex:name/sh:minCount", focus: p2}
+  - {rule: "ex:EmployerShape/ex:name/sh:minCount", focus: c2}
+  - {rule: "ex:EmployeeShape/ex:salary/sh:minCount", focus: p2}

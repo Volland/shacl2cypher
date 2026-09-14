@@ -1,0 +1,100 @@
+# Outcome of each W3C SHACL Core test on Neo4j.
+# Regenerate with S2C_W3C_BLESS=1 and S2C_NEO4J_URI set.
+complex/personexample.ttl: pass
+complex/shacl-shacl.ttl: 'skip: language-tagged literals have no LPG form'
+misc/deactivated-001.ttl: 'skip: sh:targetNode is rejected by design'
+misc/deactivated-002.ttl: 'skip: expects a literal focus node'
+misc/message-001.ttl: 'skip: sh:targetNode is rejected by design'
+misc/severity-001.ttl: 'skip: expects a literal focus node'
+misc/severity-002.ttl: 'skip: sh:targetNode is rejected by design'
+node/and-001.ttl: pass
+node/and-002.ttl: 'skip: sh:targetNode is rejected by design'
+node/class-001.ttl: 'skip: sh:targetNode is rejected by design'
+node/class-002.ttl: 'skip: expects a literal focus node'
+node/class-003.ttl: 'skip: sh:targetNode is rejected by design'
+node/closed-001.ttl: 'skip: sh:targetNode is rejected by design'
+node/closed-002.ttl: 'skip: sh:targetNode is rejected by design'
+node/datatype-001.ttl: 'skip: expects a literal focus node'
+node/datatype-002.ttl: 'skip: expects a literal focus node'
+node/disjoint-001.ttl: 'skip: sh:targetNode is rejected by design'
+node/equals-001.ttl: 'skip: sh:targetNode is rejected by design'
+node/hasValue-001.ttl: 'skip: expects a literal focus node'
+node/in-001.ttl: pass
+node/languageIn-001.ttl: 'skip: expects a literal focus node'
+node/maxExclusive-001.ttl: 'skip: expects a literal focus node'
+node/maxInclusive-001.ttl: 'skip: expects a literal focus node'
+node/maxLength-001.ttl: 'skip: expects a literal focus node'
+node/minExclusive-001.ttl: 'skip: expects a literal focus node'
+node/minInclusive-001.ttl: 'skip: expects a literal focus node'
+node/minInclusive-002.ttl: 'skip: expects a literal focus node'
+node/minInclusive-003.ttl: 'skip: expects a literal focus node'
+node/minLength-001.ttl: 'skip: expects a literal focus node'
+node/node-001.ttl: pass
+node/nodeKind-001.ttl: 'skip: expects a literal focus node'
+node/not-001.ttl: 'skip: sh:targetNode is rejected by design'
+node/not-002.ttl: 'skip: sh:targetNode is rejected by design'
+node/or-001.ttl: pass
+node/pattern-001.ttl: 'skip: expects a literal focus node'
+node/pattern-002.ttl: 'skip: expects a literal focus node'
+node/qualified-001.ttl: 'skip: compile: shapes.nt:8: sh:qualifiedMinCount and sh:qualifiedMaxCount require sh:qualifiedValueShape'
+node/xone-001.ttl: pass
+node/xone-duplicate.ttl: pass
+path/path-alternative-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-complex-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-complex-002.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-inverse-001.ttl: pass
+path/path-oneOrMore-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-sequence-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-sequence-002.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-sequence-duplicate-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-strange-001.ttl: pass
+path/path-strange-002.ttl: pass
+path/path-unused-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-zeroOrMore-001.ttl: 'skip: sh:targetNode is rejected by design'
+path/path-zeroOrOne-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/and-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/class-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/datatype-001.ttl: pass
+property/datatype-002.ttl: 'skip: sh:targetNode is rejected by design'
+property/datatype-003.ttl: 'skip: sh:targetNode is rejected by design'
+property/datatype-ill-formed.ttl: 'skip: sh:targetNode is rejected by design'
+property/disjoint-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/equals-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/hasValue-001.ttl: pass
+property/in-001.ttl: pass
+property/languageIn-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/lessThan-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/lessThan-002.ttl: 'skip: sh:targetNode is rejected by design'
+property/lessThanOrEquals-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/maxCount-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/maxCount-002.ttl: 'skip: sh:targetNode is rejected by design'
+property/maxExclusive-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/maxInclusive-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/maxLength-001.ttl: pass
+property/minCount-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/minCount-002.ttl: 'skip: sh:targetNode is rejected by design'
+property/minExclusive-001.ttl: pass
+property/minExclusive-002.ttl: 'skip: projection: <http://datashapes.org/sh/tests/core/property/minExclusive-002.test#testProperty> has both literal and node objects'
+property/minLength-001.ttl: pass
+property/node-001.ttl: pass
+property/node-002.ttl: pass
+property/nodeKind-001.ttl: 'skip: projection: <http://datashapes.org/sh/tests/core/property/nodeKind-001.test#myProperty> has both literal and node objects'
+property/not-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/or-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/or-datatypes-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/pattern-001.ttl: pass
+property/pattern-002.ttl: pass
+property/property-001.ttl: 'fail: missing [sh:class@InvalidAddress]; unexpected []'
+property/qualifiedMinCountDisjoint-001.ttl: pass
+property/qualifiedValueShape-001.ttl: 'skip: sh:targetNode is rejected by design'
+property/qualifiedValueShapesDisjoint-001.ttl: pass
+property/uniqueLang-001.ttl: 'skip: language tags have no LPG form'
+property/uniqueLang-002.ttl: 'skip: sh:targetNode is rejected by design'
+targets/multipleTargets-001.ttl: pass
+targets/targetClass-001.ttl: pass
+targets/targetClassImplicit-001.ttl: pass
+targets/targetNode-001.ttl: 'skip: sh:targetNode is rejected by design'
+targets/targetObjectsOf-001.ttl: 'skip: expects a literal focus node'
+targets/targetSubjectsOf-001.ttl: pass
+targets/targetSubjectsOf-002.ttl: pass
+validation-reports/shared.ttl: 'skip: sh:targetNode is rejected by design'

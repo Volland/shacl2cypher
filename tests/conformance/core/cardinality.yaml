@@ -1,0 +1,18 @@
+# sh:minCount / sh:maxCount over scalars, lists, empty lists, nulls and absent
+# properties. Counts are over distinct values, so a list repeating a value counts once.
+shapes: cardinality.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "Ann", tags: ["a", "b"], codes: ["x"]}}
+    - {id: p2, labels: [Person]}
+    - {id: p3, labels: [Person], props: {name: null, tags: []}}
+    - {id: p4, labels: [Person], props: {name: "Bo", tags: ["a", "b", "c"]}}
+    - {id: p5, labels: [Person], props: {name: "Cy", tags: ["a", "a"], codes: ["x", "x"]}}
+    - {id: p6, labels: [Person], props: {name: "Di", tags: ["a"], codes: ["x", "y"]}}
+expect:
+  - {rule: "ex:PersonShape/ex:name/sh:minCount", focus: p2}
+  - {rule: "ex:PersonShape/ex:name/sh:minCount", focus: p3}
+  - {rule: "ex:PersonShape/ex:tags/sh:minCount", focus: p2}
+  - {rule: "ex:PersonShape/ex:tags/sh:minCount", focus: p3}
+  - {rule: "ex:PersonShape/ex:tags/sh:maxCount", focus: p4}
+  - {rule: "ex:PersonShape/ex:codes/sh:maxCount", focus: p6}

@@ -1,0 +1,11 @@
+# Nulls inside lists are dropped from value sets. Neo4j cannot store them.
+shapes: list-nulls.ttl
+dialects: [ladybug]
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {tags: ["ok", null]}}
+    - {id: p2, labels: [Person], props: {tags: [null]}}
+    - {id: p3, labels: [Person], props: {tags: ["BAD", null]}}
+expect:
+  - {rule: "ex:PersonShape/ex:tags/sh:minCount", focus: p2}
+  - {rule: "ex:PersonShape/ex:tags/sh:pattern", focus: p3}

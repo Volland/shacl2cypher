@@ -1,0 +1,14 @@
+# sh:nodeKind: property values are literals, relationship targets are IRIs.
+# `knows` has no relationship hint; the schema snapshot resolves it to KNOWS.
+shapes: node-kind.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "Ann", nick: "A"}}
+    - {id: p2, labels: [Person]}
+    - {id: c1, labels: [Company]}
+  edges:
+    - {from: p1, to: c1, pred: worksFor}
+    - {from: p1, to: p2, pred: knows}
+expect:
+  - {rule: "ex:PersonShape/ex:name/sh:nodeKind", focus: p1}
+  - {rule: "ex:PersonShape/ex:knows/sh:nodeKind", focus: p1}

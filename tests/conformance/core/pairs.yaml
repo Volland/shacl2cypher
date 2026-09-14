@@ -1,0 +1,14 @@
+# Property pair constraints, including one side absent.
+shapes: pairs.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {email: "a", login: "a", nick: "x", name: "y", start: 1, end: 2, low: 2, high: 2}}
+    - {id: p2, labels: [Person], props: {email: "a", login: "b", nick: "z", name: "z", start: 3, end: 2, low: 3, high: 2}}
+    - {id: p3, labels: [Person], props: {login: "c", start: 5}}
+    - {id: p4, labels: [Person], props: {nick: "q"}}
+expect:
+  - {rule: "ex:PersonShape/ex:email/sh:equals", focus: p2}
+  - {rule: "ex:PersonShape/ex:nick/sh:disjoint", focus: p2}
+  - {rule: "ex:PersonShape/ex:start/sh:lessThan", focus: p2}
+  - {rule: "ex:PersonShape/ex:low/sh:lessThanOrEquals", focus: p2}
+  - {rule: "ex:PersonShape/ex:email/sh:equals", focus: p3}

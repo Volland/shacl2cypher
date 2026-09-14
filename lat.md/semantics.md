@@ -48,7 +48,7 @@ Each targeted shape yields one rule per constraint of its own and of its propert
   - `sh:nodeKind` follows the path kind: nodes are IRIs, property values are literals, and blank nodes never occur.
   - Checks that always hold get `status: guaranteed-by-schema`.
 - IRI constants in `sh:in` and `sh:hasValue` compare as local names (full IRIs with `s2c:iriAsString "full"`) with property values. They compare with node values through `--node-key`, which is required in that case.
-- `sh:closed` works on node shapes; allowed keys are its property shapes' property keys plus `sh:ignoredProperties`.
+- `sh:closed` works on node shapes. Its simple predicate paths allow their property keys and outgoing relationship types, and `sh:ignoredProperties` allows both forms. The focus key (`s2c:key`, else `--node-key`) is always allowed. Any other property or outgoing relationship violates; incoming relationships are not constrained.
 - `sh:qualifiedValueShapesDisjoint` excludes values conforming to the qualified value shapes of sibling property shapes of the same parent.
 - Unbounded repeated paths are capped at `--max-path-depth` (default 10), recorded on the rule. A depth above the dialect limit is an error.
 - On a relationship focus, only value constraints on single-property paths are allowed.

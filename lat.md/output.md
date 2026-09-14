@@ -6,11 +6,11 @@ The compiler's output contract: a JSON manifest of named queries, their stable n
 
 The JSON manifest is the primary artifact; the `.cypher` file is generated from it for humans and copy-paste use.
 
-Top-level fields: `schemaVersion`, `compilerVersion`, `dialect`, `inputs` (`[{path, sha256}]`), `schemaSnapshotHash`, `options`, `rules`, `staticDiagnostics`, `recommendedIndexes`.
+Top-level fields: `schemaVersion`, `compilerVersion`, `dialect`, `inputs`, `schemaSnapshotHash`, `options`, `rules`, `staticDiagnostics`, `recommendedIndexes`. Each input is `{path, role, sha256}`, where role is `shapes`, `ontology` or `import`. File paths are relative to the base directory (the working directory for the CLI), so manifests do not depend on the machine.
 
-Each rule entry: `name`, `ruleId`, `fingerprint`, `shape`, `path`, `constraint`, `severity`, `status` (`compiled`, `guaranteed-by-schema`, `schema-mismatch`, `deactivated`, `unsupported`), `costClass`, `source` (file and span), and `queries` with `detail` and `summary` variants.
+Each rule entry: `name`, `ruleId`, `fingerprint`, `shape`, `path`, `constraint`, `severity`, `status` (`compiled`, `guaranteed-by-schema`, `schema-mismatch`, `deactivated`, `unsupported`), `costClass`, `source` (file and span), `statusReason` for unsupported rules, `pathDepthCap`, `message`, and `queries` with `detail` and `summary` variants. `queries` is null for rules without queries. Rules are sorted by `ruleId`.
 
-Queries only read. The `.cypher` file prefixes each query with a `// name: <name>` header.
+Queries only read. The `.cypher` file starts with a fixed header naming the compiler and dialect. Each query follows `// name: <name>` (summary queries use `// name: <name>#summary`) and `// ruleId: <ruleId>`. Nothing time-dependent is written.
 
 ## Query Granularity
 
@@ -45,10 +45,11 @@ Node focus: `{label, key, keyValue, elementId}` where `key` is the shape's `s2c:
 Rule ids are structural and deterministic so names survive reordering and unrelated edits.
 
 - `ruleId` = `{nodeShape}/{path}/{component}`, nested segments for logical branches, e.g. `ex:PersonShape/ex:address/sh:or[0]/ex:street/sh:minCount`.
-- On collision, a short hash of the constraint's canonical form is appended: `…/sh:qualifiedMinCount~a3f9`.
-- `s2c:name` on any shape overrides the generated name.
-- `name` is the compacted, sanitized form (`PersonShape.name.minCount`); duplicate names after overrides are compile errors.
-- `fingerprint` hashes canonical constraint, target and dialect, so CI detects a rule that changed under the same name.
+- On collision, a 6-hex hash of the rule's canonical form is appended to every colliding id and name: `…/sh:class~a3f9c1`.
+- `name` is `{shape}.{path}.{component}` built from local names (`PersonShape.name.minCount`). Path syntax is flattened to identifier characters, e.g. `^` becomes `inv_` and `+` becomes `_plus`.
+- A property shape's `s2c:name` replaces `{shape}.{path}`; a node shape's `s2c:name` replaces `{shape}`. Names still duplicated after hashing, and rules identical in content, are compile errors listing their locations.
+- The canonical form is the rule's focus, violation, details, severity and messages, with source locations and blank-node line numbers normalized. Moving shapes within a file therefore changes neither hashes nor fingerprints.
+- `fingerprint` hashes the canonical form together with the dialect, so CI detects a rule that changed under the same name.
 
 ## Static Diagnostics
 
@@ -72,4 +73,11 @@ Only an enforced schema (LadybugDB) can decide a constraint statically; Neo4j sn
 
 Each rule records a static cost class so runners can order, warn about, or skip expensive checks.
 
-Classes: `scan`, `scan+expand`, `quadratic` (e.g. `sh:disjoint` across multi-valued paths), `unbounded-path`. Variable-length paths are bounded by `--max-path-depth`; reaching the bound is reported, not silently truncated. LadybugDB caps variable-length upper bounds at 30, so a larger depth is a compile error for that dialect. `recommendedIndexes` lists indexes the compiler suggests but never creates. Partitioned execution (`$skip`/`$batch`) is deferred.
+Classes, from most to least expensive:
+
+- `unbounded-path`: an unbounded repeated path was capped.
+- `quadratic`: a pair constraint (`sh:equals`, `sh:disjoint`, `sh:lessThan`, `sh:lessThanOrEquals`) compares relationship paths.
+- `scan+expand`: any relationship traversal.
+- `scan`: everything else.
+
+`recommendedIndexes` lists `(label, focus key)` pairs for label-focused rules that have queries. Variable-length paths are bounded by `--max-path-depth`; reaching the bound is reported, not silently truncated. LadybugDB caps variable-length upper bounds at 30, so a larger depth is a compile error for that dialect. `recommendedIndexes` lists indexes the compiler suggests but never creates. Partitioned execution (`$skip`/`$batch`) is deferred.

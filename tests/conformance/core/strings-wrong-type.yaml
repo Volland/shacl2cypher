@@ -1,0 +1,16 @@
+# Lengths and patterns apply to the lexical form of integers; other non-strings violate.
+shapes: strings-wrong-type.ttl
+dialects: [neo4j]
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {num: 12345, digits: 123, flag: true}}
+    - {id: p2, labels: [Person], props: {num: 12, digits: 23}}
+expect:
+  - {rule: "ex:PersonShape/ex:flag/sh:minLength", focus: p1}
+  - {rule: "ex:PersonShape/ex:num/sh:minLength", focus: p2}
+  - {rule: "ex:PersonShape/ex:digits/sh:pattern", focus: p2}
+known_differences:
+  - engine: pyshacl
+    rule: "ex:PersonShape/ex:flag/sh:minLength"
+    focus: p1
+    reason: SHACL measures the lexical form of any literal ("true"); the compiler applies lengths to strings and integers only.

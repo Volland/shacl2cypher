@@ -41,10 +41,43 @@ class Unsupported(Exception):
     pass
 
 
+class Skipped(Exception):
+    pass
+
+
 def curie(graph, term):
     if isinstance(term, BNode):
         raise Unsupported(f"blank node {term} has no stable name")
     return graph.namespace_manager.normalizeUri(term)
+
+
+def path_display(shapes, path):
+    """SPARQL-like path syntax matching the compiler, e.g. `ex:a/^ex:b`, `ex:knows+`."""
+    if isinstance(path, URIRef):
+        return curie(shapes, path)
+    if shapes.value(path, RDF.first) is not None:
+        return "/".join(path_atom(shapes, step) for step in shapes.items(path))
+    for predicate, template in (
+        (SH.inversePath, "^{}"),
+        (SH.zeroOrMorePath, "{}*"),
+        (SH.oneOrMorePath, "{}+"),
+        (SH.zeroOrOnePath, "{}?"),
+    ):
+        inner = shapes.value(path, predicate)
+        if inner is not None:
+            return template.format(path_atom(shapes, inner))
+    alternatives = shapes.value(path, SH.alternativePath)
+    if alternatives is not None:
+        return "|".join(path_atom(shapes, option) for option in shapes.items(alternatives))
+    raise Unsupported(f"unknown path form {path}")
+
+
+def path_atom(shapes, path):
+    text = path_display(shapes, path)
+    compound = isinstance(path, BNode) and (
+        shapes.value(path, RDF.first) is not None or shapes.value(path, SH.alternativePath) is not None
+    )
+    return f"({text})" if compound else text
 
 
 def rule_ids(shapes, result_graph, result):
@@ -57,12 +90,10 @@ def rule_ids(shapes, result_graph, result):
     path = shapes.value(source, SH.path)
     if path is None:
         return [f"{curie(shapes, source)}/sh:{param}"]
-    if not isinstance(path, URIRef):
-        raise Unsupported(f"complex path on {source}")
     parents = sorted(shapes.subjects(SH.property, source), key=str)
     if not parents:
         raise Unsupported(f"property shape {source} has no parent node shape")
-    return [f"{curie(shapes, p)}/{curie(shapes, path)}/sh:{param}" for p in parents]
+    return [f"{curie(shapes, p)}/{path_display(shapes, path)}/sh:{param}" for p in parents]
 
 
 def run_fixture(bin_path, fixture_path):
@@ -70,6 +101,8 @@ def run_fixture(bin_path, fixture_path):
         [bin_path, "oracle-input", str(fixture_path)], check=True, capture_output=True, text=True
     ).stdout
     data = json.loads(raw)
+    if data["oracleSkip"]:
+        raise Skipped(data["oracleSkip"])
     shapes = Graph().parse(data["shapes"], format="turtle")
     data_graph = Graph().parse(data=data["ntriples"], format="nt")
     _, results, _ = validate(
@@ -77,14 +110,19 @@ def run_fixture(bin_path, fixture_path):
     )
     base = data["base"] + "node/"
     actual = set()
-    for result in results.subjects(RDF.type, SH.ValidationResult):
+    # Only the report's own results; nested sh:detail results explain them.
+    reports = list(results.subjects(RDF.type, SH.ValidationReport))
+    for result in (r for report in reports for r in results.objects(report, SH.result)):
         focus = str(results.value(result, SH.focusNode))
         if not focus.startswith(base):
             raise Unsupported(f"focus {focus} is outside the fixture namespace")
         for rule in rule_ids(shapes, results, result):
             actual.add((rule, focus.removeprefix(base)))
     expected = {(v["rule"], v["focus"]) for v in data["expect"]}
-    return expected - actual, actual - expected
+    known = {(k["rule"], k["focus"]): k["reason"] for k in data["knownDifferences"]}
+    missing = {v for v in expected - actual if v not in known}
+    unexpected = {v for v in actual - expected if v not in known}
+    return missing, unexpected
 
 
 def main():
@@ -95,10 +133,15 @@ def main():
     fixtures = args.fixtures or sorted((ROOT / "tests/conformance").rglob("*.yaml"))
 
     failures = 0
+    skipped = 0
     for path in fixtures:
         name = path.relative_to(ROOT) if path.is_absolute() else path
         try:
             missing, unexpected = run_fixture(args.bin, path)
+        except Skipped as e:
+            print(f"skip {name}: {e}")
+            skipped += 1
+            continue
         except Unsupported as e:
             print(f"UNSUPPORTED {name}: {e}")
             failures += 1
@@ -112,7 +155,8 @@ def main():
                 print(f"  unexpected: {rule} @ {focus}")
         else:
             print(f"ok   {name}")
-    print(f"{len(fixtures) - failures}/{len(fixtures)} fixtures agree with pySHACL")
+    checked = len(fixtures) - skipped
+    print(f"{checked - failures}/{checked} fixtures agree with pySHACL ({skipped} skipped)")
     return 1 if failures else 0
 
 

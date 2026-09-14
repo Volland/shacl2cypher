@@ -19,6 +19,10 @@ The compiler SHALL compile `sh:targetClass`, implicit class targets, `sh:targetS
 - **WHEN** a shape is `sh:closed true` with properties `name` and `age` and a node has property `email`
 - **THEN** a violation row is returned with `value` identifying `email`
 
+#### Scenario: Closed shape with relationships
+- **WHEN** a shape is `sh:closed true` with property paths `name` and `worksFor` and a node has an outgoing `KNOWS` relationship
+- **THEN** the node violates `sh:closed`
+
 ### Requirement: Tier 2 constraint support
 The compiler SHALL compile `sh:node`, `sh:not`, `sh:and`, `sh:or`, `sh:xone`, `sh:qualifiedValueShape` with `sh:qualifiedMinCount`, `sh:qualifiedMaxCount` and `sh:qualifiedValueShapesDisjoint`, and sequence, inverse, alternative, zero-or-more, one-or-more and zero-or-one paths.
 

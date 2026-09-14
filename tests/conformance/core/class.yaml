@@ -1,0 +1,24 @@
+# sh:class on relationship targets, including a subclass declared in the shapes graph.
+shapes: class.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person]}
+    - {id: p2, labels: [Person]}
+    - {id: p3, labels: [Person]}
+    - {id: p4, labels: [Person]}
+    - {id: c1, labels: [Company]}
+    - {id: s1, labels: [Startup]}
+    - {id: r1, labels: [Robot]}
+  edges:
+    - {from: p1, to: c1, pred: worksFor}
+    - {from: p2, to: s1, pred: worksFor}
+    - {from: p3, to: p4, pred: worksFor}
+    - {from: p4, to: r1, pred: worksFor}
+expect:
+  - {rule: "ex:PersonShape/ex:worksFor/sh:class", focus: p3}
+  - {rule: "ex:PersonShape/ex:worksFor/sh:class", focus: p4}
+known_differences:
+  - engine: pyshacl
+    rule: "ex:PersonShape/ex:worksFor/sh:class"
+    focus: p2
+    reason: pySHACL reads rdfs:subClassOf from the data graph only; the compiler expands the shapes graph hierarchy.

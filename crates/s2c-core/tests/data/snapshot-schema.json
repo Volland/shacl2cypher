@@ -1,0 +1,19 @@
+{
+  "nodeTypes": [
+    {"name": "Person", "properties": [
+      {"name": "id", "type": "STRING"}, {"name": "name", "type": "STRING"},
+      {"name": "age", "type": "INT64"}, {"name": "tags", "type": "LIST<STRING>"},
+      {"name": "start", "type": "INT64"}, {"name": "end", "type": "INT64"},
+      {"name": "email", "type": "STRING"}, {"name": "phone", "type": "STRING"},
+      {"name": "extra", "type": "BOOLEAN"}
+    ]},
+    {"name": "Company", "properties": [{"name": "id", "type": "STRING"}, {"name": "status", "type": "STRING"}]},
+    {"name": "Address", "properties": [{"name": "id", "type": "STRING"}, {"name": "zip", "type": "STRING"}]}
+  ],
+  "relTypes": [
+    {"name": "WORKS_FOR", "endpoints": [{"from": "Person", "to": "Company"}, {"from": "Person", "to": "Person"}]},
+    {"name": "ADDRESS", "endpoints": [{"from": "Person", "to": "Address"}]},
+    {"name": "KNOWS", "endpoints": [{"from": "Person", "to": "Person"}],
+     "properties": [{"name": "since", "type": "DATE"}]}
+  ]
+}

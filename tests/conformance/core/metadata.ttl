@@ -1,0 +1,14 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix s2c: <https://w3id.org/shacl2cypher#> .
+
+ex:PersonShape sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:name ; sh:minCount 1 ; sh:severity sh:Warning ; sh:message "needs a name" ] ;
+    sh:property [ sh:path ex:age ; sh:minCount 1 ; sh:deactivated true ] .
+
+ex:OffShape sh:targetClass ex:Person ;
+    sh:deactivated true ;
+    sh:property [ sh:path ex:age ; sh:maxCount 0 ] .

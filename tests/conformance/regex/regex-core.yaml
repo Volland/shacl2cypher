@@ -1,0 +1,17 @@
+# Substring matching, anchoring and the i, s, m and x flags.
+shapes: regex-core.ttl
+graph:
+  nodes:
+    - {id: t1, labels: [Text], props: {a: "xxabcxx", b: "abc", c: "HeLLo world", d: "a\nb", e: "line1\nline2", f: "abc"}}
+    - {id: t2, labels: [Text], props: {a: "ab", b: "xabc", c: "say hello", d: "a\n\nb", e: "line1\nline3", f: "a b c"}}
+expect:
+  - {rule: "ex:TextShape/ex:a/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:b/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:c/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:d/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:e/sh:pattern", focus: t2}
+  - {rule: "ex:TextShape/ex:f/sh:pattern", focus: t2}
+known_differences:
+  - {engine: pyshacl, rule: "ex:TextShape/ex:d/sh:pattern", focus: t1, reason: "pySHACL 0.40.1 does not apply the s flag."}
+  - {engine: pyshacl, rule: "ex:TextShape/ex:f/sh:pattern", focus: t1, reason: "pySHACL 0.40.1 does not apply the x flag."}
+  - {engine: pyshacl, rule: "ex:TextShape/ex:f/sh:pattern", focus: t2, reason: "pySHACL 0.40.1 does not apply the x flag."}

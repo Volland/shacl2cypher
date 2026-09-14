@@ -1,0 +1,9 @@
+# Severity and messages do not change which focus nodes violate; deactivated
+# property and node shapes report nothing.
+shapes: metadata.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "A", age: 3}}
+    - {id: p2, labels: [Person]}
+expect:
+  - {rule: "ex:PersonShape/ex:name/sh:minCount", focus: p2}

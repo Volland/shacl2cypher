@@ -1,0 +1,13 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+ex:TextShape sh:targetClass ex:Text ;
+    sh:property [ sh:path ex:a ; sh:pattern "abc" ] ;
+    sh:property [ sh:path ex:b ; sh:pattern "^abc$" ] ;
+    sh:property [ sh:path ex:c ; sh:pattern "^hello" ; sh:flags "i" ] ;
+    sh:property [ sh:path ex:d ; sh:pattern "^a.b$" ; sh:flags "s" ] ;
+    sh:property [ sh:path ex:e ; sh:pattern "^line2$" ; sh:flags "m" ] ;
+    sh:property [ sh:path ex:f ; sh:pattern "^a b c$" ; sh:flags "x" ] .

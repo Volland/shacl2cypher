@@ -1,0 +1,14 @@
+# sh:closed rejects undeclared properties and outgoing relationships.
+shapes: closed.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "Ann"}}
+    - {id: p2, labels: [Person], props: {name: "Bo", extra: "x"}}
+    - {id: p3, labels: [Person], props: {name: "Cy"}}
+    - {id: c1, labels: [Company]}
+  edges:
+    - {from: p1, to: c1, pred: worksFor}
+    - {from: p3, to: p1, pred: knows}
+expect:
+  - {rule: "ex:PersonShape/sh:closed", focus: p2}
+  - {rule: "ex:PersonShape/sh:closed", focus: p3}

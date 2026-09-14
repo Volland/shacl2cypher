@@ -1,0 +1,18 @@
+# String lengths count characters (code points), patterns match substrings unless
+# anchored, and flags apply.
+shapes: strings.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {name: "Ann", code: "AB12", note: "Very URGENT"}}
+    - {id: p2, labels: [Person], props: {name: "A", code: "ab12", note: "calm"}}
+    - {id: p3, labels: [Person], props: {name: "Annabel", code: "XAB12"}}
+    - {id: p4, labels: [Person], props: {name: ""}}
+    - {id: p5, labels: [Person], props: {name: "Zoë", code: "AB1"}}
+    - {id: p6, labels: [Person], props: {name: "😀😀😀"}}
+expect:
+  - {rule: "ex:PersonShape/ex:name/sh:minLength", focus: p2}
+  - {rule: "ex:PersonShape/ex:code/sh:pattern", focus: p2}
+  - {rule: "ex:PersonShape/ex:note/sh:pattern", focus: p2}
+  - {rule: "ex:PersonShape/ex:name/sh:maxLength", focus: p3}
+  - {rule: "ex:PersonShape/ex:code/sh:pattern", focus: p3}
+  - {rule: "ex:PersonShape/ex:name/sh:minLength", focus: p4}

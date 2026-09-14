@@ -276,7 +276,7 @@ impl<'a> Resolver<'a> {
             Some(Kind::Relationship) => true,
             None => {
                 must_be_node
-                    || (last && cx.implies_nodes)
+                    || (last && cx.implies_nodes && !self.schema_prefers_property(predicate, cx)?)
                     || self.schema_prefers_relationship(predicate, cx)?
             }
         };
@@ -355,6 +355,22 @@ impl<'a> Resolver<'a> {
         let local = self.local_name(predicate, cx.location)?;
         Ok(schema.rel_type(&upper_snake(local)).is_some()
             && !self.schema_has_property(local, cx.focus))
+    }
+
+    /// The snapshot declares the property on the focus labels and has no relationship type
+    /// of that name; this outweighs structural hints such as `sh:nodeKind sh:IRI`.
+    // @lat: [[mapping#Resolution#Relationship Detection]]
+    fn schema_prefers_property(
+        &self,
+        predicate: NamedNodeRef<'_>,
+        cx: &StepContext<'_>,
+    ) -> Result<bool, MappingError> {
+        let Some(schema) = self.schema else {
+            return Ok(false);
+        };
+        let local = self.local_name(predicate, cx.location)?;
+        Ok(self.schema_has_property(local, cx.focus)
+            && schema.rel_type(&upper_snake(local)).is_none())
     }
 
     /// Whether a focus label (or, when unknown, any node type) declares the property.
@@ -654,6 +670,43 @@ ex:OrgShape sh:targetClass ex:Company ;
     }
 
     #[test]
+    fn schema_properties_outweigh_structural_hints() {
+        let schema = r#"{
+            "nodeTypes": [{"name": "Person", "properties": [{"name": "name", "type": "STRING"}]}],
+            "relTypes": [{"name": "KNOWS", "endpoints": [{"from": "Person", "to": "Person"}]}]
+        }"#;
+        let setup = Setup::new(
+            "ex:PersonShape sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:boss ; sh:class ex:Person ] ,
+                [ sh:path ex:knows ; sh:nodeKind sh:IRI ] ,
+                [ sh:path ex:name ; sh:nodeKind sh:IRI ] .
+",
+            Some(schema),
+        );
+        let resolver = setup.resolver(false);
+        let path = |index| {
+            resolver
+                .path(setup.property("PersonShape", index), &person())
+                .unwrap()
+        };
+        assert_eq!(
+            path(0),
+            LpgPath::Relationship {
+                rel_type: convention("BOSS"),
+                direction: Direction::Out
+            }
+        );
+        assert_eq!(
+            path(1),
+            LpgPath::Relationship {
+                rel_type: by(Evidence::Schema, "KNOWS"),
+                direction: Direction::Out
+            }
+        );
+        assert_eq!(path(2), LpgPath::Property(by(Evidence::Schema, "name")));
+    }
+
+    #[test]
     fn strict_mode_rejects_names_chosen_by_convention() {
         let setup = Setup::new(
             "ex:PersonShape sh:targetClass ex:Person ;
@@ -763,7 +816,7 @@ ex:PersonShape sh:targetClass ex:Person ;
         );
         let resolver = setup.resolver(false);
         assert_eq!(
-            resolver.path(setup.property("S", 0), &person()).unwrap(),
+            resolver.path(setup.property("S", 2), &person()).unwrap(),
             LpgPath::Sequence(vec![
                 LpgPath::Relationship {
                     rel_type: convention("WORKS_FOR"),
@@ -773,14 +826,14 @@ ex:PersonShape sh:targetClass ex:Person ;
             ])
         );
         assert_eq!(
-            resolver.path(setup.property("S", 1), &person()).unwrap(),
+            resolver.path(setup.property("S", 0), &person()).unwrap(),
             LpgPath::Alternative(vec![
                 LpgPath::Property(convention("email")),
                 LpgPath::Property(convention("phone")),
             ])
         );
         assert_eq!(
-            resolver.path(setup.property("S", 2), &person()).unwrap(),
+            resolver.path(setup.property("S", 1), &person()).unwrap(),
             LpgPath::Repeat {
                 path: Box::new(LpgPath::Relationship {
                     rel_type: convention("KNOWS"),
@@ -805,12 +858,12 @@ ex:Bad sh:targetClass ex:Person ;
         );
         let resolver = setup.resolver(false);
         let sequence = resolver
-            .path(setup.property("Bad", 0), &person())
+            .path(setup.property("Bad", 1), &person())
             .unwrap_err()
             .to_string();
         assert!(sequence.contains("needs a relationship"), "{sequence}");
         let alternative = resolver
-            .path(setup.property("Bad", 1), &person())
+            .path(setup.property("Bad", 0), &person())
             .unwrap_err()
             .to_string();
         assert!(

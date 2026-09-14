@@ -1,0 +1,249 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1789423479409,
+  "projectRoot": "/Users/volodymyrpavlyshyn/Documents/work/shacl2cypher",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Rust",
+        "version": "1.87",
+        "confidence": "high",
+        "markers": [
+          "Cargo.toml"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "cargo",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "cargo build",
+    "testCommand": "cargo test",
+    "lintCommand": "cargo clippy",
+    "devCommand": "cargo run",
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "crates": {
+      "path": "crates",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1789423479403,
+      "keyFiles": []
+    },
+    "lat.md": {
+      "path": "lat.md",
+      "purpose": null,
+      "fileCount": 8,
+      "lastAccessed": 1789423479403,
+      "keyFiles": [
+        "architecture.md",
+        "dialects.md",
+        "lat.md",
+        "mapping.md",
+        "output.md"
+      ]
+    },
+    "openspec": {
+      "path": "openspec",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1789423479403,
+      "keyFiles": [
+        "config.yaml"
+      ]
+    },
+    "spikes": {
+      "path": "spikes",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1789423479404,
+      "keyFiles": []
+    },
+    "target": {
+      "path": "target",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1789423479404,
+      "keyFiles": [
+        "CACHEDIR.TAG"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1789423479404,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "crates/s2c-core/src/ast.rs",
+      "accessCount": 6,
+      "lastAccessed": 1789425271622,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/src/main.rs",
+      "accessCount": 5,
+      "lastAccessed": 1789424548826,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-testkit/src/w3c.rs",
+      "accessCount": 4,
+      "lastAccessed": 1789426993467,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/tests/ladybug.rs",
+      "accessCount": 3,
+      "lastAccessed": 1789425102410,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/src/mapping.rs",
+      "accessCount": 3,
+      "lastAccessed": 1789426236747,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/tests/neo4j.rs",
+      "accessCount": 2,
+      "lastAccessed": 1789424994612,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/tests/determinism.rs",
+      "accessCount": 2,
+      "lastAccessed": 1789425121345,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/src/render/neo4j.rs",
+      "accessCount": 2,
+      "lastAccessed": 1789426450053,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/tests/w3c.rs",
+      "accessCount": 2,
+      "lastAccessed": 1789426833830,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/Cargo.toml",
+      "accessCount": 1,
+      "lastAccessed": 1789423528842,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/tests/compile.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789423608459,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/src/compile.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789423857476,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/lib.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424082327,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/executor.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424087694,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/validate.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424138834,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/report.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424187565,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/ladybug.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424219489,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/neo4j.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424262297,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/tests/validate.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424532105,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/src/lower.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424770723,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/tests/common/mod.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789424969950,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/tests/literals.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789425018210,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/tests/data/snapshot.ttl",
+      "accessCount": 1,
+      "lastAccessed": 1789425027291,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/tests/data/snapshot-schema.json",
+      "accessCount": 1,
+      "lastAccessed": 1789425031898,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/tests/snapshots.rs",
+      "accessCount": 1,
+      "lastAccessed": 1789425037597,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

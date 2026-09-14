@@ -1,0 +1,18 @@
+# s2c:targetRelationship validates relationship properties, which have no RDF form.
+shapes: relationship-target.ttl
+graph:
+  nodes:
+    - {id: p1, labels: [Person]}
+    - {id: p2, labels: [Person]}
+    - {id: p3, labels: [Person]}
+  edges:
+    - {from: p1, to: p2, pred: knows, props: {weight: 5}}
+    - {from: p2, to: p3, pred: knows, props: {weight: -1}}
+    - {from: p3, to: p1, pred: knows}
+expect:
+  - {rule: "ex:KnowsShape/ex:weight/sh:minInclusive", focus: "p2->p3"}
+known_differences:
+  - engine: pyshacl
+    rule: "ex:KnowsShape/ex:weight/sh:minInclusive"
+    focus: "p2->p3"
+    reason: Relationship properties have no RDF projection, so pySHACL sees no focus.

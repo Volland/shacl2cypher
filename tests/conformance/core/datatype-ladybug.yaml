@@ -1,0 +1,9 @@
+# On LadybugDB the declared column types guarantee sh:datatype, so the rules are
+# `guaranteed-by-schema` and run no queries; no engine reports a violation.
+shapes: datatype-ladybug.ttl
+dialects: [ladybug]
+graph:
+  nodes:
+    - {id: p1, labels: [Person], props: {age: 30, name: "Ann", born: {date: "2000-01-01"}}}
+    - {id: p2, labels: [Person]}
+expect: []

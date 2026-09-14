@@ -19,7 +19,7 @@ Class labels come from the node shape's `s2c:label` when that shape has a single
 A path step is a relationship when annotated with `s2c:relationship` or `s2c:direction`, or when its position must yield nodes; otherwise hints and the schema decide, defaulting to a property.
 
 - Positions that must yield nodes: inverse steps, repeated steps (`*`, `+`, `?`) and every step before the last in a sequence. An explicit `s2c:property` there is a compile error.
-- Final-step hints: `sh:class`, `sh:node`, or `sh:nodeKind` of `sh:IRI`/`sh:BlankNode`/`sh:BlankNodeOrIRI` on the property shape.
+- Final-step hints: `sh:class`, `sh:node`, or `sh:nodeKind` of `sh:IRI`/`sh:BlankNode`/`sh:BlankNodeOrIRI` on the property shape. A hint is ignored when the snapshot declares the property on the focus labels and has no relationship type of that name. Schema facts outweigh hints, so a hint never turns a declared property into an always-empty relationship.
 - Schema evidence: the snapshot has the conventional relationship type and no focus label declares a property with the local name (all node types are consulted when focus labels are unknown).
 - Direction defaults to outgoing, `s2c:direction` overrides it, and `sh:inversePath` flips it. Alternatives must be all properties or all relationships.
 - Combining `s2c:property` with `s2c:relationship` or `s2c:direction` on the same subject is a compile error.

@@ -16,6 +16,12 @@ neo4j = ["s2c-runner/neo4j"]
 ladybug = ["s2c-runner/ladybug"]
 
 [dependencies]
-clap = { version = "4.6.7", features = ["derive"] }
+clap = { version = "4.6.7", features = ["derive", "env"] }
 s2c-core = { path = "../s2c-core" }
 s2c-runner = { path = "../s2c-runner" }
+serde_json = "1.0.151"
+ureq = "2"
+
+[dev-dependencies]
+serde_json = "1.0.151"
+tempfile = "3.27.0"
