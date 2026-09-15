@@ -1,6 +1,6 @@
 # Lengths and patterns apply to the lexical form of integers; other non-strings violate.
 shapes: strings-wrong-type.ttl
-dialects: [neo4j]
+dialects: [neo4j, falkordb]
 graph:
   nodes:
     - {id: p1, labels: [Person], props: {num: 12345, digits: 123, flag: true}}

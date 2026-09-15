@@ -73,6 +73,7 @@ Constraints quantify over value sets ([[mapping#Value Sets]]). Every generated p
 4. On LadybugDB a NULL in a declared column is the same as absent.
 5. No renderer may emit a bare comparison under `NOT`; a lint test in the core crate enforces this.
 6. Predicates that raise runtime errors on mismatched types (Neo4j `size()`) are guarded by a type test, e.g. `CASE WHEN v IS :: STRING NOT NULL THEN size(v) >= 3 ELSE false END`; `coalesce` alone cannot catch an error.
+7. FalkorDB evaluates every `CASE` branch, so a guard cannot protect a raising function there. Its string tests run on `toStringOrNull(v)`, which never raises.
 
 ## Regex Translation
 
@@ -81,6 +82,8 @@ Constraints quantify over value sets ([[mapping#Value Sets]]). Every generated p
 - Neo4j `=~` is Java regex and fully anchored, so patterns are wrapped as `(?s).*(?:PATTERN).*` with `sh:flags` mapped to inline flags. Java supports backreferences, so they are allowed on Neo4j.
 - LadybugDB `=~` is also fully anchored; the renderer uses RE2 substring matching via `regexp_matches(v, 'PATTERN')` with inline RE2 flags (`(?i)`, `(?s)`, `(?m)` confirmed). Backslashes are doubled inside the string literal.
 - RE2 silently returns false for backreferences instead of failing, so they must be rejected at compile time for LadybugDB.
+- FalkorDB has no `=~`. The renderer uses `size(string.matchRegEx(toStringOrNull(v), 'PATTERN')) > 0`, which searches substrings with Oniguruma's Java-like syntax, so no wrapper is needed. Inline flags and back-references work.
+- FalkorDB silently never matches `\x{…}`, so the renderer rewrites expanded ranges to `\uHHHH` or, beyond the Basic Multilingual Plane, to the literal character.
 - Patterns are first normalized to the syntax Java and RE2 share, then validated with a full regex parser.
 - `\i`, `\c`, `\I` and `\C` expand to XML name-character classes. Character classes using subtraction (`[a-z-[aeiou]]`) or negated name escapes are expanded to explicit `\x{…}` ranges, since neither engine supports XSD subtraction. `&` and `~` inside classes are escaped.
 - Flags: `s`, `m` and `i` are kept for rendering; `x` removes whitespace outside character classes and `q` escapes the whole pattern. Any other flag is a compile error.

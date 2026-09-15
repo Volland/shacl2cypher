@@ -74,7 +74,7 @@ jobs:
         run: |
           scripts/ci/static-openssl.sh "$RUNNER_TEMP/openssl"
           echo "OPENSSL_DIR=$RUNNER_TEMP/openssl" >> "$GITHUB_ENV"
-      - run: cargo build --release --locked -p shacl2cypher --features neo4j,ladybug --target ${{ matrix.target }}
+      - run: cargo build --release --locked -p shacl2cypher --features neo4j,ladybug,falkordb --target ${{ matrix.target }}
       - run: scripts/ci/check-no-dynamic-openssl.sh "target/${{ matrix.target }}/release/shacl2cypher"
       - name: Package
         shell: bash

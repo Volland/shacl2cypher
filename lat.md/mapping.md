@@ -57,17 +57,17 @@ Conflicting single-valued annotations across files are compile errors — [[arch
 
 XSD datatypes map to native value types per dialect; overridable per predicate with `s2c:datatype`.
 
-| XSD | Neo4j 5 | LadybugDB |
-|---|---|---|
-| `xsd:string` | `IS :: STRING` | `STRING` |
-| `xsd:integer`, `long`, `int`, `short`, `byte` | `IS :: INTEGER` plus range check for narrow types | `INT64`/`INT32`/`INT16`/`INT8` |
-| `xsd:decimal`, `double`, `float` | `IS :: FLOAT` (decimal is lossy) | `DECIMAL`/`DOUBLE`/`FLOAT` |
-| `xsd:boolean` | `IS :: BOOLEAN` | `BOOL` |
-| `xsd:date` | `IS :: DATE` | `DATE` |
-| `xsd:dateTime` | `IS :: ZONED DATETIME` or `LOCAL DATETIME` | `TIMESTAMP` |
-| `xsd:duration` | `IS :: DURATION` | `INTERVAL` |
-| `xsd:anyURI` | `IS :: STRING` | `STRING` |
-| `rdf:langString` | compile error | compile error |
+| XSD | Neo4j 5 | LadybugDB | FalkorDB |
+|---|---|---|---|
+| `xsd:string` | `IS :: STRING` | `STRING` | `typeOf(v) = 'String'` |
+| `xsd:integer`, `long`, `int`, `short`, `byte` | `IS :: INTEGER` plus range check for narrow types | `INT64`/`INT32`/`INT16`/`INT8` | `'Integer'` plus range check for narrow types |
+| `xsd:decimal`, `double`, `float` | `IS :: FLOAT` (decimal is lossy) | `DECIMAL`/`DOUBLE`/`FLOAT` | `'Float'` (decimal is lossy) |
+| `xsd:boolean` | `IS :: BOOLEAN` | `BOOL` | `'Boolean'` |
+| `xsd:date` | `IS :: DATE` | `DATE` | `'Date'` |
+| `xsd:dateTime` | `IS :: ZONED DATETIME` or `LOCAL DATETIME` | `TIMESTAMP` | `'Datetime'` (local only) |
+| `xsd:duration` | `IS :: DURATION` | `INTERVAL` | `'Duration'` |
+| `xsd:anyURI` | `IS :: STRING` | `STRING` | `'String'` |
+| `rdf:langString` | compile error | compile error | compile error |
 
 Before dialect rendering, each XSD datatype maps to the neutral schema value types that can hold it:
 
@@ -97,6 +97,7 @@ On a property path the IRI renders as its local name, or the full IRI with `s2c:
 `rdfs:subClassOf` triples from the shape files and optional `--ontology` files are expanded statically into targets and `sh:class` checks.
 
 - Neo4j: `--neo4j-labels explicit` (default) expands to `(n:Person|Employee)`; `inherited` assumes nodes already carry all superclass labels and skips expansion.
+- FalkorDB: `--neo4j-labels` works as on Neo4j. FalkorDB has no label expressions, so expansion renders `WHERE n:Person OR n:Employee`.
 - LadybugDB: always expands, since a node belongs to exactly one table; multi-table patterns like `(n:Person:Employee)` match any listed table.
 - Expansion is transitive, ignores reflexive `rdfs:subClassOf` statements and lists classes sorted by IRI, so generated patterns are deterministic.
 - Subclass cycles are compile errors listing every `rdfs:subClassOf` statement of the cycle with its location.

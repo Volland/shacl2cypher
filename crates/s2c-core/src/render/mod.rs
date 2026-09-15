@@ -1,9 +1,10 @@
-//! Cypher rendering of IR rules: pieces shared by the Neo4j and LadybugDB backends.
+//! Cypher rendering of IR rules: pieces shared by the Neo4j, LadybugDB and FalkorDB backends.
 
 use crate::ast::Direction;
 use crate::ir::Constant;
 use crate::mapping::LpgPath;
 
+pub mod falkordb;
 pub mod ladybug;
 #[cfg(test)]
 mod lint;
@@ -16,6 +17,7 @@ pub use rule::{Rendered, RuleMeta};
 pub enum Dialect {
     Neo4j,
     Ladybug,
+    FalkorDb,
 }
 
 impl Dialect {
@@ -23,6 +25,7 @@ impl Dialect {
         match self {
             Dialect::Neo4j => "neo4j",
             Dialect::Ladybug => "ladybug",
+            Dialect::FalkorDb => "falkordb",
         }
     }
 
@@ -30,7 +33,7 @@ impl Dialect {
     // @lat: [[dialects#Dialect Backends#Renderer Probes]]
     pub fn max_path_depth(self) -> Option<u32> {
         match self {
-            Dialect::Neo4j => None,
+            Dialect::Neo4j | Dialect::FalkorDb => None,
             Dialect::Ladybug => Some(30),
         }
     }
@@ -40,7 +43,7 @@ impl Dialect {
 #[error("{0}")]
 pub struct RenderError(pub String);
 
-/// Single-quoted string literal; only `\` and `'` need escaping in either dialect.
+/// Single-quoted string literal; only `\` and `'` need escaping in every dialect.
 pub fn quote(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('\'');
@@ -60,6 +63,43 @@ pub fn ident(name: &str) -> String {
     format!("`{}`", name.replace('`', "``"))
 }
 
+/// Backticked identifiers of a query, skipping string literals.
+pub(crate) fn backticked(query: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut chars = query.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\'' | '"' => {
+                while let Some(inner) = chars.next() {
+                    if inner == '\\' {
+                        chars.next();
+                    } else if inner == c {
+                        break;
+                    }
+                }
+            }
+            '`' => {
+                let mut name = String::new();
+                while let Some(inner) = chars.next() {
+                    if inner == '`' {
+                        if chars.peek() == Some(&'`') {
+                            chars.next();
+                            name.push('`');
+                        } else {
+                            break;
+                        }
+                    } else {
+                        name.push(inner);
+                    }
+                }
+                names.push(name);
+            }
+            _ => {}
+        }
+    }
+    names
+}
+
 /// A typed constant as a Cypher expression.
 // @lat: [[dialects#Literals and Identifiers]]
 pub fn constant(dialect: Dialect, value: &Constant) -> Result<String, RenderError> {
@@ -76,12 +116,30 @@ pub fn constant(dialect: Dialect, value: &Constant) -> Result<String, RenderErro
             format!("{number:?}")
         }
         Constant::Boolean(flag) => flag.to_string(),
-        Constant::Date(lexical) => format!("date({})", quote(lexical)),
+        Constant::Date(lexical) => match dialect {
+            Dialect::FalkorDb if !calendar_date(lexical) => {
+                return Err(RenderError(format!(
+                    "xsd:date constant {lexical} is not supported on FalkorDB, which only reads YYYY-MM-DD dates without a timezone and silently rolls over invalid days"
+                )))
+            }
+            _ => format!("date({})", quote(lexical)),
+        },
         Constant::DateTime(lexical) => match (dialect, has_timezone(lexical)) {
             (Dialect::Neo4j, true) => format!("datetime({})", quote(lexical)),
             (Dialect::Neo4j, false) => format!("localdatetime({})", quote(lexical)),
             (Dialect::Ladybug, true) => format!("CAST({} AS TIMESTAMP_TZ)", quote(lexical)),
             (Dialect::Ladybug, false) => format!("timestamp({})", quote(lexical)),
+            (Dialect::FalkorDb, true) => return Err(zoned_on_falkordb("xsd:dateTime", lexical)),
+            (Dialect::FalkorDb, false) => {
+                let whole = lexical
+                    .split_once('T')
+                    .filter(|(date, _)| calendar_date(date))
+                    .and_then(|(date, time)| clock_time(time).map(|time| format!("{date}T{time}")))
+                    .ok_or_else(|| RenderError(format!(
+                        "xsd:dateTime constant {lexical} is not supported on FalkorDB, which only keeps whole seconds of valid local date-times"
+                    )))?;
+                format!("localdatetime({})", quote(&whole))
+            }
         },
         Constant::Time(lexical) => match dialect {
             Dialect::Neo4j if has_timezone(lexical) => format!("time({})", quote(lexical)),
@@ -91,6 +149,15 @@ pub fn constant(dialect: Dialect, value: &Constant) -> Result<String, RenderErro
                 "xsd:time constant {lexical} is not supported on LadybugDB, which has no time type"
             )))
             }
+            Dialect::FalkorDb if has_timezone(lexical) => {
+                return Err(zoned_on_falkordb("xsd:time", lexical))
+            }
+            Dialect::FalkorDb => {
+                let whole = clock_time(lexical).ok_or_else(|| RenderError(format!(
+                    "xsd:time constant {lexical} is not supported on FalkorDB, which only keeps whole seconds of valid times"
+                )))?;
+                format!("localtime({})", quote(whole))
+            }
         },
         Constant::Duration(lexical) => match dialect {
             Dialect::Neo4j => format!("duration({})", quote(lexical)),
@@ -98,8 +165,73 @@ pub fn constant(dialect: Dialect, value: &Constant) -> Result<String, RenderErro
                 "interval({})",
                 quote(&duration_words(lexical).map_err(RenderError)?)
             ),
+            Dialect::FalkorDb => {
+                return Err(RenderError(format!(
+                    "xsd:duration constant {lexical} is not supported on FalkorDB, which compares durations as total seconds (P1Y equals P365D) and cannot hold negative or fractional ones"
+                )))
+            }
         },
     })
+}
+
+// @lat: [[dialects#Dialect Backends#FalkorDB]]
+fn zoned_on_falkordb(datatype: &str, lexical: &str) -> RenderError {
+    RenderError(format!(
+        "{datatype} constant {lexical} with a timezone is not supported on FalkorDB, which silently drops timezone offsets"
+    ))
+}
+
+/// `YYYY-MM-DD` naming a real calendar day in years 0001 to 9999.
+fn calendar_date(text: &str) -> bool {
+    let mut parts = text.split('-');
+    let (Some(year), Some(month), Some(day), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let (Some(year), Some(month), Some(day)) = (digits(year, 4), digits(month, 2), digits(day, 2))
+    else {
+        return false;
+    };
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    year >= 1 && (1..=days).contains(&day)
+}
+
+/// The whole-second `hh:mm:ss` form of a valid time whose fraction, if any, is zero.
+fn clock_time(text: &str) -> Option<&str> {
+    let (whole, fraction) = match text.split_once('.') {
+        Some((whole, fraction)) if !fraction.is_empty() && fraction.bytes().all(|b| b == b'0') => {
+            (whole, fraction)
+        }
+        Some(_) => return None,
+        None => (text, ""),
+    };
+    let _ = fraction;
+    let mut parts = whole.split(':');
+    let (Some(hour), Some(minute), Some(second), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return None;
+    };
+    let valid = digits(hour, 2).is_some_and(|h| h <= 23)
+        && digits(minute, 2).is_some_and(|m| m <= 59)
+        && digits(second, 2).is_some_and(|s| s <= 59);
+    valid.then_some(whole)
+}
+
+fn digits(text: &str, len: usize) -> Option<u32> {
+    if text.len() == len && text.bytes().all(|b| b.is_ascii_digit()) {
+        text.parse().ok()
+    } else {
+        None
+    }
 }
 
 /// XSD decimal lexical form as a numeric literal (`.5` -> `0.5`, `5.` -> `5.0`).
@@ -311,7 +443,7 @@ fn merge_single_hops(routes: Vec<Route>) -> Vec<Route> {
 /// A relationship pattern such as `-[:A|B*1..5]->`, to be placed between node patterns.
 pub fn hop_pattern(dialect: Dialect, hop: &Hop) -> String {
     let separator = match dialect {
-        Dialect::Neo4j => "|",
+        Dialect::Neo4j | Dialect::FalkorDb => "|",
         Dialect::Ladybug => "|:",
     };
     let types: Vec<String> = hop.types.iter().map(|t| ident(t)).collect();
@@ -371,6 +503,10 @@ mod tests {
     fn quotes_strings_and_identifiers() {
         assert_eq!(quote("O'Brien \\ x\ny"), "'O\\'Brien \\\\ x\ny'");
         assert_eq!(ident("We`ird Label"), "`We``ird Label`");
+        assert_eq!(
+            backticked("MATCH (n:`A``b`) WHERE n.x = 'it''s `no`' RETURN n.`c` AS `d`"),
+            ["A`b", "c", "d"]
+        );
     }
 
     #[test]
@@ -438,6 +574,60 @@ mod tests {
             (Dialect::Neo4j, Constant::Integer(i128::MAX), "64-bit"),
         ] {
             let message = constant(dialect, &value).unwrap_err().to_string();
+            assert!(message.contains(expected), "{message}");
+        }
+    }
+
+    // @lat: [[tests#Compilation#FalkorDB Constants]]
+    #[test]
+    fn renders_only_exact_temporal_constants_on_falkordb() {
+        let falkordb = |value: Constant| constant(Dialect::FalkorDb, &value);
+        for (value, expected) in [
+            (Constant::Date("2020-02-29".into()), "date('2020-02-29')"),
+            (
+                Constant::DateTime("2020-01-01T10:00:00".into()),
+                "localdatetime('2020-01-01T10:00:00')",
+            ),
+            (
+                Constant::DateTime("2020-01-01T10:00:00.000".into()),
+                "localdatetime('2020-01-01T10:00:00')",
+            ),
+            (Constant::Time("23:59:59".into()), "localtime('23:59:59')"),
+            (Constant::String("O'Brien".into()), "'O\\'Brien'"),
+            (Constant::Integer(-5), "-5"),
+        ] {
+            assert_eq!(falkordb(value).unwrap(), expected);
+        }
+        for (value, expected) in [
+            (
+                Constant::Date("2021-02-29".into()),
+                "rolls over invalid days",
+            ),
+            (Constant::Date("2020-01-01Z".into()), "YYYY-MM-DD"),
+            (Constant::Date("-0001-01-01".into()), "YYYY-MM-DD"),
+            (
+                Constant::DateTime("2020-01-01T10:00:00Z".into()),
+                "drops timezone offsets",
+            ),
+            (
+                Constant::DateTime("2020-01-01T10:00:00+01:00".into()),
+                "drops timezone offsets",
+            ),
+            (
+                Constant::DateTime("2020-01-01T10:00:00.5".into()),
+                "whole seconds",
+            ),
+            (
+                Constant::DateTime("2020-01-01T24:00:00".into()),
+                "whole seconds",
+            ),
+            (Constant::Time("10:00:00Z".into()), "drops timezone offsets"),
+            (Constant::Time("10:00:00.25".into()), "whole seconds"),
+            (Constant::Time("10:61:00".into()), "whole seconds"),
+            (Constant::Duration("P1D".into()), "total seconds"),
+        ] {
+            let message = falkordb(value).unwrap_err().to_string();
+            assert!(message.contains("FalkorDB"), "{message}");
             assert!(message.contains(expected), "{message}");
         }
     }
@@ -516,5 +706,11 @@ mod tests {
             chain(Dialect::Ladybug, &hops),
             "-[:`A`|:`B`]->()<-[:`C`*0..5]-"
         );
+        assert_eq!(
+            chain(Dialect::FalkorDb, &hops),
+            "-[:`A`|`B`]->()<-[:`C`*0..5]-"
+        );
+        assert_eq!(Dialect::FalkorDb.name(), "falkordb");
+        assert_eq!(Dialect::FalkorDb.max_path_depth(), None);
     }
 }

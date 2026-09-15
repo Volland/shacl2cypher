@@ -40,3 +40,8 @@ fn ladybug_queries() {
     let schema = std::fs::read_to_string(data("snapshot-schema.json")).unwrap();
     insta::assert_snapshot!("ladybug", cypher(Dialect::Ladybug, Some(&schema)));
 }
+
+#[test]
+fn falkordb_queries() {
+    insta::assert_snapshot!("falkordb", cypher(Dialect::FalkorDb, None));
+}

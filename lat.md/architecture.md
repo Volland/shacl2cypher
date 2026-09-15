@@ -8,17 +8,29 @@ The workspace separates deterministic compilation from database I/O so the core 
 
 - `shacl2cypher-core`: input assembly, shapes AST, resolution, IR, dialect renderers, manifest. No database I/O.
 - `shacl2cypher`: the `shacl2cypher` binary with `compile`, plus `validate` and `schema dump` when runner features are enabled.
-- `shacl2cypher-runner`: executes manifests and introspects schemas; cargo features `neo4j` (Bolt via `neo4rs`) and `ladybug` (embedded `lbug` bindings).
+- `shacl2cypher-runner`: executes manifests and introspects schemas; cargo features `neo4j` (Bolt via `neo4rs`), `ladybug` (embedded `lbug` bindings) and `falkordb` (Redis protocol via the `falkordb` crate).
 - `s2c-testkit`: test-only, unpublished; loads conformance fixtures and projects them to RDF and LPG load scripts — see [[testing#Conformance Fixtures]]. With feature `ladybug`, `s2c-fixture ladybug-db` writes a fixture into a LadybugDB file for binding tests.
 - `s2c-python` and `s2c-node`: unpublished crates building the `shacl2cypher` PyPI and npm packages — see [[bindings]].
 
-The crates are published to crates.io as `shacl2cypher-core`, `shacl2cypher-runner` and `shacl2cypher` (the CLI, installable with `cargo install --locked shacl2cypher --features neo4j,ladybug`; `--locked` is needed on Rust 1.87), under the MIT license; `s2c-testkit` is never published. Directories keep their `crates/s2c-*` names. The runner's integration tests are excluded from its package because they need repository fixtures.
+The crates are published to crates.io as `shacl2cypher-core`, `shacl2cypher-runner` and `shacl2cypher` (the CLI, installable with `cargo install --locked shacl2cypher --features neo4j,ladybug,falkordb`; `--locked` is needed on Rust 1.87), under the MIT license; `s2c-testkit` is never published. Directories keep their `crates/s2c-*` names. The runner's integration tests are excluded from its package because they need repository fixtures.
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`. After checking that the tag matches the workspace version, it creates the GitHub release and attaches `shacl2cypher` binaries with both backends for Linux x86_64, Linux arm64 and macOS arm64, each with a SHA-256 checksum. The same workflow publishes the Python and npm packages — see [[bindings#Release]].
+Pushing a `v*` tag runs `.github/workflows/release.yml`. After checking that the tag matches the workspace version, it creates the GitHub release and attaches `shacl2cypher` binaries with all three backends for Linux x86_64, Linux arm64 and macOS arm64, each with a SHA-256 checksum. The same workflow publishes the Python and npm packages — see [[bindings#Release]].
+
+The user documentation site is static HTML in `doc/` — see [[architecture#Documentation Site]].
 
 The workspace declares `rust-version = "1.87"` and uses Cargo's `incompatible-rust-versions = "fallback"` resolver so dependency versions stay compatible with that toolchain. Throwaway spikes live in `spikes/`, excluded from the workspace.
 
-Binding dependencies were pinned against that toolchain by the `spikes/bindings-msrv` spike: `pyo3` 0.29 and `pythonize` 0.29 (Rust 1.83), and `napi` 3.4, `napi-derive` 3.3 and `napi-build` 2.2.4 (Rust 1.82). Newer napi-rs releases need Rust 1.88, so they are capped with `<` bounds.
+Binding dependencies were pinned against that toolchain by the `spikes/bindings-msrv` spike: `pyo3` 0.29 and `pythonize` 0.29 (Rust 1.83), and `napi` 3.4, `napi-derive` 3.3 and `napi-build` 2.2.4 (Rust 1.82). Newer napi-rs releases need Rust 1.88, so they are capped with `<` bounds. The FalkorDB client is pinned the same way: `falkordb` 0.10.3 with `redis` 1.2.2, because `redis` 1.2.3 needs Rust 1.88.
+
+## Documentation Site
+
+User documentation is a static HTML site in `doc/`, published to GitHub Pages by `.github/workflows/pages.yml` on pushes to `main` that touch `doc/`.
+
+- Pages source must be set to "GitHub Actions", because branch-based Pages only serves `/` or `/docs`.
+- Sections: overview, getting started, reference, a SHACL usage guide, an LPG Modeler integration guide, the book *Shapes for Property Graphs* (`doc/book/`, nine chapters), and articles on the design and the FalkorDB dialect.
+- Styles and self-hosted fonts are shared with the LPG Modeler site, with its own accent colour; there is no build step.
+- Every shapes file quoted by the book lives in `doc/examples/book/` and must compile with `shacl2cypher compile --dialect neo4j`. `doc/examples/modeler/` holds the files of the LPG Modeler walkthrough.
+- The FalkorDB article describes the `add-falkordb-dialect` change as in development; update it when the dialect ships.
 
 ## Input Assembly
 
@@ -56,7 +68,7 @@ Multi-valued settings (`sh:property`, repeated constraints, targets, messages) a
 
 `shacl2cypher compile` turns shapes files into `manifest.json` and `queries.cypher` in the `-o` directory (default: the working directory).
 
-Options: `--dialect neo4j|ladybug` (required), `--schema`, repeatable `--ontology`, `--node-key`, `--neo4j-labels explicit|inherited`, `--strict`, `--lenient`, `--verbose`, `--max-path-depth` (default 10), `--allow-remote-imports`, `--fail-on-schema-mismatch`.
+Options: `--dialect neo4j|ladybug|falkordb` (required), `--schema`, repeatable `--ontology`, `--node-key`, `--neo4j-labels explicit|inherited` (Neo4j and FalkorDB), `--strict`, `--lenient`, `--verbose`, `--max-path-depth` (default 10), `--allow-remote-imports`, `--fail-on-schema-mismatch`.
 
 - Manifest input paths are relative to the working directory.
 - Compile errors print one `error:` line per problem and exit 1, writing no files. Usage errors exit 2.
@@ -66,10 +78,10 @@ Options: `--dialect neo4j|ladybug` (required), `--schema`, repeatable `--ontolog
 
 ## Runner
 
-The runner executes a manifest's queries against Neo4j or LadybugDB, drills into failing rules, and reports results for humans and CI.
+The runner executes a manifest's queries against Neo4j, LadybugDB or FalkorDB, drills into failing rules, and reports results for humans and CI.
 
 - `shacl2cypher validate` compiles shapes in memory for the connected dialect, or loads `--manifest`. A manifest compiled for another dialect is rejected.
-- On LadybugDB without `--schema`, the schema is dumped from the database before compiling.
+- On LadybugDB without `--schema`, the schema is dumped from the database before compiling. Neo4j and FalkorDB compile without one.
 - LadybugDB is embedded: the runner opens database files directly and may conflict with an application holding the lock.
 
 ### Validate Flow
@@ -106,11 +118,16 @@ Backends are cargo features of `shacl2cypher-runner` and `shacl2cypher`; without
 
 - `neo4j` uses `neo4rs` over Bolt (`--connect`, `--user`/`NEO4J_USER`, `--password`/`NEO4J_PASSWORD`, `--database`). The driver is pinned to `0.9.0-rc.10`: 0.8 decodes the integers −16…−1 as 240…255, which the literal fuzz test caught. Read-mode transactions are unstable in that driver, so every query runs in an explicit transaction that is always rolled back, and nothing a query does persists. A timed-out query abandons its connection pool. Rows are read as Bolt values and converted to JSON explicitly, so report values never depend on the driver's serde mapping.
 - `ladybug` uses the embedded `lbug` crate (`--ladybug <file>`). Databases open with `read_only(true)`, and a missing file is an error rather than a new database. Timeouts use the connection's native query timeout.
+- `falkordb` uses the `falkordb` crate over the Redis protocol (`--falkordb <url> --graph <name>`, credentials in the URL or `FALKORDB_USERNAME`/`FALKORDB_PASSWORD`; `rediss://` is rejected).
+  - Queries only run through `GRAPH.RO_QUERY`, which refuses writes and never creates a graph. A graph missing from `GRAPH.LIST` is a setup error.
+  - `--timeout` becomes the server-side `TIMEOUT`; without it the runner sends `TIMEOUT 0`, because the server otherwise stops queries after 1000 ms. The client's own response timeout does not interrupt queries.
+  - The client drops the first word of server errors, so a timeout is recognized by its `timed out` suffix. Rows convert to JSON explicitly, with dates, local date-times and local times as ISO strings and durations as `PT<seconds>S`.
 
 ### Schema Dump
 
-`shacl2cypher schema dump` writes a snapshot that `compile --schema` accepts unchanged; both backends emit neutral type names.
+`shacl2cypher schema dump` writes a snapshot that `compile --schema` accepts unchanged; every backend emits neutral type names.
 
 - LadybugDB: `show_tables`, `table_info` and `show_connection` give node and rel tables, declared column types and FROM/TO pairs. `TIMESTAMP` becomes `LOCAL_DATETIME`, `BOOL` becomes `BOOLEAN`, `T[]` becomes `LIST<T>`, and unknown types become `ANY`.
 - Neo4j: `db.labels`, `db.relationshipTypes` and the `db.schema.nodeTypeProperties`/`relTypeProperties` procedures give observed property types. Several types, or differing types across label combinations, become `ANY`.
 - Neo4j endpoints come from one distinct scan per relationship type (`MATCH (a)-[:T]->(b)` over label pairs). `db.schema.visualization` returns virtual endpoints without labels. The scan reads every relationship, and types without relationships are omitted.
+- FalkorDB has no schema procedures, so the dump scans every node and relationship. The `typeOf` names of each property per label or type map to neutral types: `Integer` becomes `INT64`, `Datetime` becomes `LOCAL_DATETIME`, lists become `LIST<T>` from their element types, and several types become `ANY`. Endpoints come from one distinct scan of labeled endpoint pairs, and types without them are omitted.

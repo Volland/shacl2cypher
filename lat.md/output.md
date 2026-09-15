@@ -80,4 +80,4 @@ Classes, from most to least expensive:
 - `scan+expand`: any relationship traversal.
 - `scan`: everything else.
 
-`recommendedIndexes` lists `(label, focus key)` pairs for label-focused rules that have queries. Variable-length paths are bounded by `--max-path-depth`; reaching the bound is reported, not silently truncated. LadybugDB caps variable-length upper bounds at 30, so a larger depth is a compile error for that dialect. `recommendedIndexes` lists indexes the compiler suggests but never creates. Partitioned execution (`$skip`/`$batch`) is deferred.
+`recommendedIndexes` lists `(label, focus key)` pairs for label-focused rules that have queries. Variable-length paths are bounded by `--max-path-depth`; reaching the bound is reported, not silently truncated. LadybugDB caps variable-length upper bounds at 30, so a larger depth is a compile error for that dialect. `recommendedIndexes` lists indexes the compiler suggests but never creates. Partitioned execution (`$skip`/`$batch`) is deferred. On FalkorDB every relationship traversal is a correlated `CALL` subquery run per focus node, so `scan+expand` rules cost more than on Neo4j; the classes stay the same.

@@ -135,7 +135,7 @@ fn prepare(fields: CompileFields, dialect: Option<Dialect>) -> Result<(Sources, 
     let dialect = match (dialect, fields.dialect) {
         (Some(dialect), _) => dialect,
         (None, Some(name)) => session::dialect_named(&name)
-            .ok_or_else(|| invalid("dialect", &name, "neo4j, ladybug"))?,
+            .ok_or_else(|| invalid("dialect", &name, "neo4j, ladybug, falkordb"))?,
         (None, None) => return Err(failure("type", "dialect is required")),
     };
     let labels = fields.neo4j_labels.as_deref().unwrap_or("explicit");

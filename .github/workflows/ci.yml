@@ -80,6 +80,29 @@ jobs:
           npx napi build --platform --no-js --dts native.d.ts --features neo4j,remote-imports
           node --test test/database.test.js
 
+  falkordb:
+    name: FalkorDB backend
+    runs-on: ubuntu-latest
+    services:
+      falkordb:
+        image: falkordb/falkordb:v4.20.4
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      S2C_FALKORDB_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.87.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: falkordb
+      - run: cargo test --workspace --features shacl2cypher/falkordb
+
   python:
     name: Python binding (${{ matrix.python }})
     runs-on: ubuntu-latest

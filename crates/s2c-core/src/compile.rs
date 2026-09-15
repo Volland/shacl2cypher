@@ -258,7 +258,7 @@ pub fn compile(
         .map(|schema| SchemaChecker::new(schema, dialect == Dialect::Ladybug));
     let lower_options = LowerOptions {
         label_policy: match dialect {
-            Dialect::Neo4j => options.label_policy,
+            Dialect::Neo4j | Dialect::FalkorDb => options.label_policy,
             Dialect::Ladybug => LabelPolicy::Explicit,
         },
         node_key: options.node_key.clone(),
@@ -323,6 +323,7 @@ pub fn compile(
             };
             let rendered = match (dialect, schema.as_ref()) {
                 (Dialect::Neo4j, _) => render::neo4j::render(rule, &meta),
+                (Dialect::FalkorDb, _) => render::falkordb::render(rule, &meta),
                 (Dialect::Ladybug, Some(schema)) => render::ladybug::render(rule, &meta, schema),
                 (Dialect::Ladybug, None) => unreachable!("checked before lowering"),
             };
@@ -1176,6 +1177,50 @@ ex:enemy s2c:relationship \"ENEMY\" .
             .unwrap_err()
             .to_string();
         assert!(message.contains("--fail-on-schema-mismatch"), "{message}");
+    }
+
+    #[test]
+    fn falkordb_compiles_without_a_schema_and_honors_the_label_policy() {
+        let project = Project::new(&[(
+            "shapes.ttl",
+            "ex:PersonShape sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:name ; sh:minCount 1 ] .
+ex:Employee <http://www.w3.org/2000/01/rdf-schema#subClassOf> ex:Person .
+",
+        )]);
+        let falkordb = CompileOptions {
+            dialect: Dialect::FalkorDb,
+            ..neo4j()
+        };
+        let manifest = project.compile(falkordb.clone()).unwrap().manifest;
+        assert_eq!(manifest.dialect, "falkordb");
+        let queries = rule(&manifest, "PersonShape.name.minCount")
+            .queries
+            .as_ref()
+            .unwrap();
+        assert!(
+            queries
+                .detail
+                .starts_with("MATCH (v0)\nWHERE (v0:`Employee` OR v0:`Person`)"),
+            "{}",
+            queries.detail
+        );
+        assert!(queries.detail.ends_with("LIMIT $limit"));
+
+        let inherited = CompileOptions {
+            label_policy: LabelPolicy::Inherited,
+            ..falkordb
+        };
+        let manifest = project.compile(inherited).unwrap().manifest;
+        let queries = rule(&manifest, "PersonShape.name.minCount")
+            .queries
+            .as_ref()
+            .unwrap();
+        assert!(
+            queries.detail.starts_with("MATCH (v0:`Person`)"),
+            "{}",
+            queries.detail
+        );
     }
 
     #[test]

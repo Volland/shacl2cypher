@@ -103,7 +103,7 @@ pub struct Expected {
 }
 
 /// Engines a fixture can run on.
-pub const ENGINES: &[&str] = &["pyshacl", "neo4j", "ladybug"];
+pub const ENGINES: &[&str] = &["pyshacl", "neo4j", "ladybug", "falkordb"];
 
 /// A violation one engine reports differently from `expect`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

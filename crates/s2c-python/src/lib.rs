@@ -139,7 +139,7 @@ fn prepare(
     args: CompileArgs,
 ) -> PyResult<(Sources, CompileOptions)> {
     let dialect = session::dialect_named(&args.dialect)
-        .ok_or_else(|| invalid("dialect", &args.dialect, "neo4j, ladybug"))?;
+        .ok_or_else(|| invalid("dialect", &args.dialect, "neo4j, ladybug, falkordb"))?;
     let label_policy = session::label_policy_named(&args.neo4j_labels)
         .ok_or_else(|| invalid("neo4j_labels", &args.neo4j_labels, "explicit, inherited"))?;
     let schema = match args.schema {

@@ -55,11 +55,12 @@ pub fn snapshot_text(snapshot: &SchemaSnapshot) -> String {
     text
 }
 
-/// `neo4j` or `ladybug`.
+/// `neo4j`, `ladybug` or `falkordb`.
 pub fn dialect_named(name: &str) -> Option<Dialect> {
     match name {
         "neo4j" => Some(Dialect::Neo4j),
         "ladybug" => Some(Dialect::Ladybug),
+        "falkordb" => Some(Dialect::FalkorDb),
         _ => None,
     }
 }
@@ -159,6 +160,7 @@ mod tests {
     #[test]
     fn names_parse_like_cli_values() {
         assert_eq!(dialect_named("ladybug"), Some(Dialect::Ladybug));
+        assert_eq!(dialect_named("falkordb"), Some(Dialect::FalkorDb));
         assert_eq!(dialect_named("postgres"), None);
         assert_eq!(
             label_policy_named("inherited"),

@@ -90,6 +90,18 @@ Identifiers containing `\uXXXX`, which Neo4j decodes inside backticks, fail rend
 
 Constructs LadybugDB cannot evaluate, such as regex back-references, are rejected at render time.
 
+### FalkorDB Queries
+
+Every compiled rule renders for FalkorDB without write clauses, pattern predicates or comprehensions, `EXISTS`/`COUNT` subqueries, or string functions over raw values.
+
+### FalkorDB Constants
+
+FalkorDB receives only temporal constants it holds exactly; zoned, fractional, invalid-calendar and duration constants are compile errors naming FalkorDB.
+
+### Unrepresentable FalkorDB Identifiers
+
+Labels, relationship types and property keys containing a backtick fail rendering, because FalkorDB cannot escape a backtick inside an identifier.
+
 ## Manifest
 
 Stable names, fingerprints and deterministic output files.
@@ -161,6 +173,14 @@ Compile errors exit 1 without writing files; usage errors exit 2.
 ### Database Worker
 
 A worker thread owns one executor, completes concurrent jobs in turn, rejects jobs after close and returns open errors.
+
+### Read-Only FalkorDB
+
+FalkorDB graphs are queried read-only: writes fail, a missing graph is an error and is not created, slow queries time out, the schema dump round-trips, and manifests of other dialects are rejected.
+
+### FalkorDB Setup Errors
+
+TLS URLs, unreachable servers and missing graphs make `validate --falkordb` exit 2 with a message naming the problem.
 
 ## Python Binding
 
@@ -285,6 +305,14 @@ Every fixture loads into a fresh LadybugDB file, validates end to end and matche
 ### Fixtures on Neo4j
 
 Every fixture loads into Neo4j, validates end to end and matches `expect`, including `details`.
+
+### Fixtures on FalkorDB
+
+Every fixture FalkorDB can store loads into its own FalkorDB graph, validates end to end and matches `expect`, including `details`.
+
+### Literal Round-Trips on FalkorDB
+
+Random strings, representable identifiers and typed constants come back unchanged from FalkorDB.
 
 ### W3C Core Suite
 

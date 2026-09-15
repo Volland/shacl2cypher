@@ -57,7 +57,7 @@ struct CompileArgs {
 
 #[derive(Args)]
 struct CompileFlags {
-    /// Schema snapshot JSON (required for ladybug when compiling).
+    /// Schema snapshot JSON (required for ladybug, optional for neo4j and falkordb).
     #[arg(long)]
     schema: Option<PathBuf>,
     /// Ontology files contributing `rdfs:subClassOf` statements.
@@ -66,7 +66,7 @@ struct CompileFlags {
     /// Property identifying nodes when a shape has no `s2c:key`.
     #[arg(long)]
     node_key: Option<String>,
-    /// How class targets match subclass labels on Neo4j.
+    /// How class targets match subclass labels on Neo4j and FalkorDB.
     #[arg(long, value_enum, default_value = "explicit")]
     neo4j_labels: LabelsArg,
     /// Fail for classes and paths resolved by convention alone.
@@ -92,7 +92,7 @@ struct CompileFlags {
 #[derive(Args)]
 struct BackendArgs {
     /// Neo4j Bolt URI, e.g. bolt://localhost:7687.
-    #[arg(long, value_name = "URI", conflicts_with = "ladybug")]
+    #[arg(long, value_name = "URI", conflicts_with_all = ["ladybug", "falkordb"])]
     connect: Option<String>,
     /// Neo4j user.
     #[arg(long, env = "NEO4J_USER", default_value = "neo4j")]
@@ -109,8 +109,15 @@ struct BackendArgs {
     #[arg(long)]
     database: Option<String>,
     /// LadybugDB database file, opened read-only.
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE", conflicts_with = "falkordb")]
     ladybug: Option<PathBuf>,
+    /// FalkorDB server URL, e.g. redis://localhost:6379; credentials may come from
+    /// FALKORDB_USERNAME and FALKORDB_PASSWORD.
+    #[arg(long, value_name = "URL", requires = "graph")]
+    falkordb: Option<String>,
+    /// Name of the FalkorDB graph to validate or dump.
+    #[arg(long, value_name = "NAME", requires = "falkordb")]
+    graph: Option<String>,
 }
 
 #[derive(Args)]
@@ -158,6 +165,8 @@ struct DumpArgs {
 enum DialectArg {
     Neo4j,
     Ladybug,
+    #[value(name = "falkordb")]
+    FalkorDb,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -240,6 +249,7 @@ fn run_compile(args: CompileArgs) -> Result<u8, String> {
     let dialect = match args.dialect {
         DialectArg::Neo4j => Dialect::Neo4j,
         DialectArg::Ladybug => Dialect::Ladybug,
+        DialectArg::FalkorDb => Dialect::FalkorDb,
     };
     let request = CompileRequest {
         shapes: &args.shapes,
@@ -286,21 +296,25 @@ fn print_diagnostics(manifest: &Manifest) {
     }
 }
 
-/// Opens the database named by `--connect` or `--ladybug`.
+/// Opens the database named by `--connect`, `--ladybug` or `--falkordb`.
 // @lat: [[architecture#Runner#Backends]]
 fn open_backend(args: &BackendArgs) -> Result<Box<dyn Executor>, Failure> {
     backend::require_any_backend().map_err(setup)?;
-    let config = match (&args.connect, &args.ladybug) {
-        (Some(uri), _) => BackendConfig::Neo4j {
+    let config = match (&args.connect, &args.ladybug, &args.falkordb) {
+        (Some(uri), _, _) => BackendConfig::Neo4j {
             uri: uri.clone(),
             user: args.user.clone(),
             password: args.password.clone(),
             database: args.database.clone(),
         },
-        (None, Some(path)) => BackendConfig::Ladybug { path: path.clone() },
-        (None, None) => {
+        (None, Some(path), _) => BackendConfig::Ladybug { path: path.clone() },
+        (None, None, Some(url)) => BackendConfig::FalkorDb {
+            url: url.clone(),
+            graph: args.graph.clone().unwrap_or_default(),
+        },
+        (None, None, None) => {
             return Err(setup(
-                "name a database with `--connect <bolt-uri>` or `--ladybug <database file>`",
+                "name a database with `--connect <bolt-uri>`, `--ladybug <database file>` or `--falkordb <url> --graph <name>`",
             ))
         }
     };

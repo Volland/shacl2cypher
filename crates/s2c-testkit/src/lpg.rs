@@ -1,8 +1,9 @@
-//! LPG projections of a fixture graph: Cypher load scripts for Neo4j and LadybugDB.
+//! LPG projections of a fixture graph: Cypher load scripts for Neo4j, LadybugDB and FalkorDB.
 //!
 //! Every node gets its fixture id in the `id` property. LadybugDB needs declared
 //! tables, so its script also infers node and relationship table DDL from the data;
 //! a node must then carry exactly one label and a property must have one type.
+//! FalkorDB takes the Neo4j script but cannot store nulls inside lists.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -54,6 +55,33 @@ pub fn neo4j_script(fixture: &Fixture) -> Vec<String> {
         ));
     }
     statements
+}
+
+/// FalkorDB load script: the Neo4j statements, for graphs FalkorDB can store.
+pub fn falkordb_script(fixture: &Fixture) -> Result<Vec<String>, String> {
+    let null_element = |props: &BTreeMap<String, Value>| {
+        props
+            .iter()
+            .find(|(_, value)| matches!(value, Value::List(items) if items.contains(&Value::Null)))
+            .map(|(key, _)| key.clone())
+    };
+    for node in &fixture.graph.nodes {
+        if let Some(key) = null_element(&node.props) {
+            return Err(format!(
+                "FalkorDB cannot store null list elements (node `{}`, property `{key}`)",
+                node.id
+            ));
+        }
+    }
+    for edge in &fixture.graph.edges {
+        if let Some(key) = null_element(&edge.props) {
+            return Err(format!(
+                "FalkorDB cannot store null list elements (edge `{}` from `{}`, property `{key}`)",
+                edge.pred, edge.from
+            ));
+        }
+    }
+    Ok(neo4j_script(fixture))
 }
 
 /// Writes the fixture's LPG projection into a new LadybugDB database file.
@@ -348,5 +376,16 @@ graph:
         assert!(ladybug_script(&multi)
             .unwrap_err()
             .contains("exactly one label"));
+    }
+
+    #[test]
+    fn falkordb_script_reuses_neo4j_statements_without_null_list_elements() {
+        let graph = fixture(GRAPH);
+        assert_eq!(falkordb_script(&graph).unwrap(), neo4j_script(&graph));
+        let nulls = fixture(
+            "shapes: s.ttl\ngraph:\n  nodes:\n    - {id: a, labels: [T], props: {x: [1, null]}}\n",
+        );
+        let error = falkordb_script(&nulls).unwrap_err();
+        assert!(error.contains("node `a`, property `x`"), "{error}");
     }
 }

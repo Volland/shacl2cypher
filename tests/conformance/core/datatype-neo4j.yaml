@@ -1,8 +1,8 @@
 # sh:datatype against untyped Neo4j properties: wrong scalar types violate, list
 # elements are checked one by one, absent values are vacuously fine.
-# LadybugDB columns are typed, so the same data cannot be loaded there.
+# LadybugDB columns are typed, so the same data cannot be loaded there; FalkorDB is untyped like Neo4j.
 shapes: datatype-neo4j.ttl
-dialects: [neo4j]
+dialects: [neo4j, falkordb]
 graph:
   nodes:
     - {id: p1, labels: [Person], props: {age: 30, name: "Ann", born: {date: "2000-01-01"}, active: true}}

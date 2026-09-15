@@ -1,7 +1,7 @@
 // Types of the `shacl2cypher` npm package. Data shapes use the camelCase keys of
 // `manifest.json`, `--format json` reports and `schema dump` snapshots.
 
-export type Dialect = 'neo4j' | 'ladybug';
+export type Dialect = 'neo4j' | 'ladybug' | 'falkordb';
 export type RdfFormat = 'turtle' | 'ntriples' | 'trig';
 export type Neo4jLabels = 'explicit' | 'inherited';
 export type ReportFormat = 'table' | 'json' | 'junit' | 'sarif';

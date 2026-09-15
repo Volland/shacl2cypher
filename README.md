@@ -2,7 +2,7 @@
 
 Compile [SHACL](https://www.w3.org/TR/shacl/) shapes into named, read-only Cypher queries that validate a labeled property graph and point at every broken rule.
 
-shacl2cypher reads a set of SHACL files and maps classes and paths to labels, properties and relationships. It writes one detail query and one summary query per constraint. It can also run those queries against **Neo4j 5** or **LadybugDB** and report violations as a table, JSON, JUnit or SARIF.
+shacl2cypher reads a set of SHACL files and maps classes and paths to labels, properties and relationships. It writes one detail query and one summary query per constraint. It can also run those queries against **Neo4j 5**, **LadybugDB** or **FalkorDB** and report violations as a table, JSON, JUnit or SARIF.
 
 ```text
 $ shacl2cypher validate shapes.ttl --ladybug graph.lbug --node-key id
@@ -32,20 +32,20 @@ failed      Violation           1         8  PersonShape.worksFor.maxCount
 
 ## Install
 
-Prebuilt binaries with both database backends are attached to each [GitHub release](https://github.com/Volland/shacl2cypher/releases). They cover Linux x86_64, Linux arm64 and macOS arm64, and each tarball has a SHA-256 checksum next to it.
+Prebuilt binaries with all three database backends are attached to each [GitHub release](https://github.com/Volland/shacl2cypher/releases). They cover Linux x86_64, Linux arm64 and macOS arm64, and each tarball has a SHA-256 checksum next to it.
 
 With cargo:
 
 ```sh
 cargo install --locked shacl2cypher                              # compile only
-cargo install --locked shacl2cypher --features neo4j,ladybug     # with database backends (LadybugDB builds C++, needs cmake)
+cargo install --locked shacl2cypher --features neo4j,ladybug,falkordb  # with database backends (LadybugDB builds C++, needs cmake)
 ```
 
 `--locked` installs the dependency versions the release was tested with. It is required on Rust 1.87, where the newest versions of some transitive dependencies need a newer compiler.
 
 The compiler and runner are also published as libraries: [`shacl2cypher-core`](https://crates.io/crates/shacl2cypher-core) and [`shacl2cypher-runner`](https://crates.io/crates/shacl2cypher-runner).
 
-Python and Node.js packages bundle both database backends — see [Python and TypeScript](#python-and-typescript):
+Python and Node.js packages bundle the Neo4j and LadybugDB backends — see [Python and TypeScript](#python-and-typescript):
 
 ```sh
 pip install shacl2cypher      # CPython 3.9+
@@ -60,7 +60,8 @@ Requires Rust 1.87 or newer. Database backends are optional cargo features, so a
 cargo build --release -p shacl2cypher                          # compile only
 cargo build --release -p shacl2cypher --features neo4j         # + Neo4j (Bolt)
 cargo build --release -p shacl2cypher --features ladybug       # + LadybugDB (embedded; builds C++, needs cmake)
-cargo build --release -p shacl2cypher --features neo4j,ladybug
+cargo build --release -p shacl2cypher --features falkordb      # + FalkorDB (Redis protocol)
+cargo build --release -p shacl2cypher --features neo4j,ladybug,falkordb
 ```
 
 The binary is `target/release/shacl2cypher`.
@@ -94,6 +95,8 @@ shacl2cypher schema dump --ladybug ./graph.lbug -o schema.json
 shacl2cypher compile shapes/*.ttl --dialect ladybug --schema schema.json --node-key id -o out/
 ```
 
+FalkorDB, like Neo4j, needs no snapshot: `--dialect falkordb`. Its queries avoid constructs FalkorDB 4.20 evaluates wrongly, so every relationship traversal is a correlated `CALL` subquery.
+
 ### Validate a database
 
 ```sh
@@ -104,6 +107,10 @@ NEO4J_PASSWORD=secret shacl2cypher validate shapes/*.ttl \
 # LadybugDB: the file is opened read-only; the schema is read from it
 shacl2cypher validate shapes/*.ttl --ladybug ./graph.lbug --node-key id --format sarif -o report.sarif
 
+# FalkorDB: queries run through GRAPH.RO_QUERY on an existing graph
+FALKORDB_PASSWORD=secret shacl2cypher validate shapes/*.ttl \
+    --falkordb redis://localhost:6379 --graph social --node-key id
+
 # Run a manifest compiled earlier, e.g. in CI
 shacl2cypher validate --manifest out/manifest.json --connect bolt://localhost:7687 --format junit -o junit.xml
 ```
@@ -112,7 +119,7 @@ Useful options: `--timeout <seconds>` per query, `--limit` for violations listed
 
 ## Python and TypeScript
 
-The `shacl2cypher` packages on PyPI and npm run the same compiler and runner in-process, without the CLI. Manifests, queries and reports are byte-identical to the CLI's, and their data uses the camelCase keys of `manifest.json` and `--format json`.
+The `shacl2cypher` packages on PyPI and npm run the same compiler and runner in-process, without the CLI. Manifests, queries and reports are byte-identical to the CLI's, and their data uses the camelCase keys of `manifest.json` and `--format json`. Both compile for every dialect, including `falkordb`; opening a FalkorDB database from them is not supported yet, so validate FalkorDB graphs with the CLI.
 
 ### Python
 
@@ -168,7 +175,7 @@ MATURIN_PEP517_ARGS="--no-default-features --features remote-imports" pip instal
 
 Resolution is convention first, then evidence from the schema snapshot, then explicit `s2c:` annotations, which always win.
 
-- **Labels** use the class IRI's local name: `ex:Person` becomes `:Person`. Class targets and `sh:class` include `rdfs:subClassOf` subclasses from the shapes and `--ontology` files. With `--neo4j-labels inherited`, Neo4j matches only the class label, because nodes carry their superclass labels.
+- **Labels** use the class IRI's local name: `ex:Person` becomes `:Person`. Class targets and `sh:class` include `rdfs:subClassOf` subclasses from the shapes and `--ontology` files. With `--neo4j-labels inherited`, Neo4j and FalkorDB match only the class label, because nodes carry their superclass labels.
 - **Properties** use the predicate's local name: `ex:name` becomes `name`.
 - **Relationships** use UPPER_SNAKE_CASE: `ex:worksFor` becomes `WORKS_FOR`, outgoing. A path step is a relationship when:
   - it is inverse, repeated, or not the last step of a sequence, or
@@ -240,9 +247,10 @@ Behaviour differences from RDF engines:
 - `sh:closed` also forbids undeclared outgoing relationships, and always allows the node key.
 - Length constraints apply to strings and integers only.
 - XSD regexes are parsed and rewritten for each engine. LadybugDB rejects back-references.
+- On FalkorDB, date-time and time constants with a timezone or fractional seconds, and every `xsd:duration` constant, are compile errors: FalkorDB drops offsets and fractions and compares durations as seconds. Labels, relationship types and property keys containing a backtick cannot be written.
 - Property shapes nested inside property shapes are not supported yet.
 
-Conformance is checked with 24 fixtures on Neo4j and LadybugDB (23 of them also against pySHACL) and with the W3C SHACL Core suite on Neo4j. 27 W3C tests pass; every other outcome and its reason is recorded in [`tests/w3c/status.yaml`](tests/w3c/status.yaml).
+Conformance is checked with 24 fixtures on Neo4j, LadybugDB and FalkorDB, each engine running the fixtures it can store (23 of them also against pySHACL), and with the W3C SHACL Core suite on Neo4j. 27 W3C tests pass; every other outcome and its reason is recorded in [`tests/w3c/status.yaml`](tests/w3c/status.yaml).
 
 ## Output
 
@@ -298,6 +306,8 @@ cargo test --workspace                                       # compiler, CLI, re
 cargo test --workspace --features shacl2cypher/ladybug            # + LadybugDB conformance fixtures and fuzzing
 S2C_NEO4J_URI=bolt://localhost:7687 S2C_NEO4J_PASSWORD=secret \
   cargo test --workspace --features shacl2cypher/neo4j            # + Neo4j fixtures, fuzzing, W3C suite
+S2C_FALKORDB_URL=redis://localhost:6379 \
+  cargo test --workspace --features shacl2cypher/falkordb         # + FalkorDB fixtures and fuzzing
 ```
 
 - **Fixtures** live in `tests/conformance/` as a YAML graph plus a shapes file and a hand-written `expect` block. Set `S2C_FIXTURE=<substring>` to run only matching fixtures.

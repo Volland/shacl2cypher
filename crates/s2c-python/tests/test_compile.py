@@ -49,8 +49,15 @@ def test_output_matches_the_cli_byte_for_byte(tmp_path: Path, cli: Path) -> None
     assert compilation.cypher == (tmp_path / "queries.cypher").read_text()
 
 
+def test_compiles_for_falkordb_without_a_schema() -> None:
+    compilation = shacl2cypher.compile([SHAPES], dialect="falkordb", node_key="id")
+    assert compilation.manifest["dialect"] == "falkordb"
+    assert "LIMIT $limit;" in compilation.cypher
+    assert "EXISTS {" not in compilation.cypher
+
+
 def test_option_values_are_checked() -> None:
-    with pytest.raises(ValueError, match="dialect must be one of neo4j, ladybug"):
+    with pytest.raises(ValueError, match="dialect must be one of neo4j, ladybug, falkordb"):
         shacl2cypher.compile([SHAPES], dialect="postgres")  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="neo4j_labels"):
         shacl2cypher.compile([SHAPES], dialect="neo4j", neo4j_labels="all")  # type: ignore[arg-type]

@@ -6,7 +6,7 @@ they are camelCase.
 
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 
-Dialect = Literal["neo4j", "ladybug"]
+Dialect = Literal["neo4j", "ladybug", "falkordb"]
 RdfFormat = Literal["turtle", "ntriples", "trig"]
 Neo4jLabels = Literal["explicit", "inherited"]
 ReportFormat = Literal["table", "json", "junit", "sarif"]

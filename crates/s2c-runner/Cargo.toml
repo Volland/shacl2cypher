@@ -1,6 +1,6 @@
 [package]
 name = "shacl2cypher-runner"
-description = "Executes shacl2cypher manifests against Neo4j and LadybugDB and introspects schemas"
+description = "Executes shacl2cypher manifests against Neo4j, LadybugDB and FalkorDB and introspects schemas"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,9 +17,13 @@ exclude = ["tests/"]
 default = []
 neo4j = ["dep:neo4rs", "dep:tokio"]
 ladybug = ["dep:lbug"]
+falkordb = ["dep:falkordb", "dep:redis"]
 remote-imports = ["dep:ureq"]
 
 [dependencies]
+# redis 1.2.3 and later need Rust 1.88; pinned with the client for the 1.87 toolchain.
+falkordb = { version = "=0.10.3", optional = true }
+redis = { version = "=1.2.2", optional = true, default-features = false }
 lbug = { version = "0.20.4", optional = true }
 neo4rs = { version = "=0.9.0-rc.10", optional = true }
 ureq = { version = "2", optional = true }

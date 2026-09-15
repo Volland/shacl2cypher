@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 
 use super::{
-    chain, constant, ident, quote, routes, Dialect, RenderError, Rendered, Route, RuleMeta,
+    backticked, chain, constant, ident, quote, routes, Dialect, RenderError, Rendered, Route,
+    RuleMeta,
 };
 use crate::datatypes::DatatypeCheck;
 use crate::ir::{
@@ -32,43 +33,6 @@ pub fn unrepresentable_identifier(name: &str) -> bool {
     name.as_bytes().windows(6).any(|w| {
         w[0] == b'\\' && matches!(w[1], b'u' | b'U') && w[2..].iter().all(u8::is_ascii_hexdigit)
     })
-}
-
-/// Backticked identifiers of a query, skipping string literals.
-fn backticked(query: &str) -> Vec<String> {
-    let mut names = Vec::new();
-    let mut chars = query.chars().peekable();
-    while let Some(c) = chars.next() {
-        match c {
-            '\'' | '"' => {
-                while let Some(inner) = chars.next() {
-                    if inner == '\\' {
-                        chars.next();
-                    } else if inner == c {
-                        break;
-                    }
-                }
-            }
-            '`' => {
-                let mut name = String::new();
-                while let Some(inner) = chars.next() {
-                    if inner == '`' {
-                        if chars.peek() == Some(&'`') {
-                            chars.next();
-                            name.push('`');
-                        } else {
-                            break;
-                        }
-                    } else {
-                        name.push(inner);
-                    }
-                }
-                names.push(name);
-            }
-            _ => {}
-        }
-    }
-    names
 }
 
 struct Renderer<'m> {

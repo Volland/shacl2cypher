@@ -1,6 +1,6 @@
 # Values that cannot be compared with the bound violate the range constraint.
 shapes: ranges-wrong-type.ttl
-dialects: [neo4j]
+dialects: [neo4j, falkordb]
 graph:
   nodes:
     - {id: p1, labels: [Person], props: {age: "abc", born: "2000-01-01"}}

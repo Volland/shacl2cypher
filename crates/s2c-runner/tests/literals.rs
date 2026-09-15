@@ -1,6 +1,6 @@
 //! Round-trips random strings, identifiers and typed constants through the literal
-//! renderer and both databases.
-#![cfg(any(feature = "ladybug", feature = "neo4j"))]
+//! renderer and every database.
+#![cfg(any(feature = "ladybug", feature = "neo4j", feature = "falkordb"))]
 
 use serde_json::Value;
 use shacl2cypher_core::ir::Constant;
@@ -49,10 +49,35 @@ fn single(executor: &mut dyn Executor, query: &str) -> Result<Row, String> {
         .ok_or_else(|| format!("{query}: no row"))
 }
 
-fn to_string_expr(dialect: Dialect, literal: &str) -> String {
+/// A date literal as an ISO string. FalkorDB's `toString` does not pad years below
+/// 1000, so its dates are returned as values and formatted by the executor.
+fn date_text(dialect: Dialect, literal: &str) -> String {
     match dialect {
         Dialect::Neo4j => format!("toString({literal})"),
         Dialect::Ladybug => format!("CAST({literal} AS STRING)"),
+        Dialect::FalkorDb => literal.to_owned(),
+    }
+}
+
+/// Whether a returned double matches. FalkorDB's result protocol carries 15
+/// significant digits, although the database parses and compares literals exactly.
+fn same_double(dialect: Dialect, returned: Option<f64>, expected: f64) -> bool {
+    match (dialect, returned) {
+        (Dialect::FalkorDb, Some(value)) => {
+            value == expected || (value - expected).abs() <= expected.abs() * 1e-14
+        }
+        (_, returned) => returned == Some(expected),
+    }
+}
+
+/// Whether the renderer rejects `name` as an identifier for the dialect.
+fn unrepresentable(dialect: Dialect, name: &str) -> bool {
+    match dialect {
+        // Neo4j decodes `\uXXXX` inside backticks.
+        Dialect::Neo4j => shacl2cypher_core::render::neo4j::unrepresentable_identifier(name),
+        // FalkorDB cannot escape a backtick inside backticks.
+        Dialect::FalkorDb => shacl2cypher_core::render::falkordb::unrepresentable_identifier(name),
+        Dialect::Ladybug => false,
     }
 }
 
@@ -89,10 +114,7 @@ fn round_trip(executor: &mut dyn Executor) -> Vec<String> {
     let mut rejected = 0;
     for _ in 0..100 {
         let name = format!("c{}", random_text(&mut rng));
-        // Neo4j decodes `\uXXXX` inside backticks, so the renderer rejects such names.
-        if dialect == Dialect::Neo4j
-            && shacl2cypher_core::render::neo4j::unrepresentable_identifier(&name)
-        {
+        if unrepresentable(dialect, &name) {
             rejected += 1;
             continue;
         }
@@ -102,8 +124,12 @@ fn round_trip(executor: &mut dyn Executor) -> Vec<String> {
             executor,
         );
     }
-    if dialect == Dialect::Neo4j {
-        assert!(rejected > 0, "the generator should produce `\\uXXXX` names");
+    if dialect != Dialect::Ladybug {
+        assert!(
+            rejected > 0,
+            "the generator should produce names {} cannot represent",
+            dialect.name()
+        );
     }
 
     let mut integers = vec![0i64, 1, -1, i64::MAX, i64::MIN, i64::MIN + 1, 1 << 53];
@@ -127,9 +153,17 @@ fn round_trip(executor: &mut dyn Executor) -> Vec<String> {
         let rendered = constant(dialect, &Constant::Double(format!("{x:?}"))).unwrap();
         expect(
             format!("RETURN {rendered} AS v"),
-            &|row| row["v"].as_f64() == Some(x),
+            &|row| same_double(dialect, row["v"].as_f64(), x),
             executor,
         );
+        if dialect == Dialect::FalkorDb {
+            // Exactness inside the database, beyond the protocol's 15 digits.
+            expect(
+                format!("RETURN {rendered} = {x:?} AND NOT {rendered} <> {x:?} AS v"),
+                &|row| row["v"] == Value::Bool(true),
+                executor,
+            );
+        }
     }
 
     for b in [true, false] {
@@ -151,7 +185,7 @@ fn round_trip(executor: &mut dyn Executor) -> Vec<String> {
         let rendered = constant(dialect, &Constant::Date(date.clone())).unwrap();
         let expected = Value::String(date);
         expect(
-            format!("RETURN {} AS v", to_string_expr(dialect, &rendered)),
+            format!("RETURN {} AS v", date_text(dialect, &rendered)),
             &|row| row["v"] == expected,
             executor,
         );
@@ -192,5 +226,37 @@ fn literals_round_trip_on_neo4j() {
     };
     let mut executor = shacl2cypher_runner::neo4j::Neo4jExecutor::connect(config).unwrap();
     let failures = round_trip(&mut executor);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+// @lat: [[tests#Conformance#Literal Round-Trips on FalkorDB]]
+#[cfg(feature = "falkordb")]
+#[test]
+fn literals_round_trip_on_falkordb() {
+    use shacl2cypher_runner::falkordb::{FalkorDbConfig, FalkorDbExecutor};
+
+    let Ok(url) = std::env::var("S2C_FALKORDB_URL") else {
+        eprintln!("skipping: S2C_FALKORDB_URL is not set");
+        return;
+    };
+    let name = format!("s2c_literals_{}", std::process::id());
+    let info: falkordb::FalkorConnectionInfo = url.as_str().try_into().unwrap();
+    let client = falkordb::FalkorClientBuilder::new()
+        .with_connection_info(info)
+        .build()
+        .unwrap();
+    let mut graph = client.select_graph(&name);
+    graph
+        .query("CREATE (:T {id: 'x'})")
+        .execute()
+        .map(|_| ())
+        .unwrap();
+    let failures = FalkorDbExecutor::connect(&FalkorDbConfig {
+        url,
+        graph: name.clone(),
+    })
+    .map(|mut executor| round_trip(&mut executor));
+    let _ = client.select_graph(&name).delete();
+    let failures = failures.unwrap();
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

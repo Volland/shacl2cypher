@@ -143,3 +143,45 @@ fn ladybug_compile_reports_schema_diagnostics() {
     );
     assert_eq!(failing.status.code(), Some(1));
 }
+
+#[test]
+fn falkordb_compiles_without_a_schema() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("person.ttl"), SHAPES).unwrap();
+    let output = run(
+        dir.path(),
+        &[
+            "compile",
+            "person.ttl",
+            "--dialect",
+            "falkordb",
+            "--node-key",
+            "id",
+            "-o",
+            "out",
+        ],
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("for falkordb into out"),
+        "{}",
+        stderr(&output)
+    );
+    let manifest: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.path().join("out/manifest.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest["dialect"], "falkordb");
+    let cypher = std::fs::read_to_string(dir.path().join("out/queries.cypher")).unwrap();
+    assert!(cypher.contains("LIMIT $limit;"), "{cypher}");
+    assert!(
+        !cypher.contains("EXISTS {") && !cypher.contains(" IS :: "),
+        "{cypher}"
+    );
+
+    let misspelled = run(
+        dir.path(),
+        &["compile", "person.ttl", "--dialect", "falkor-db"],
+    );
+    assert_eq!(misspelled.status.code(), Some(2));
+}

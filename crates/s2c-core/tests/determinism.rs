@@ -100,7 +100,7 @@ fn natural_order() -> Vec<usize> {
 fn repeated_compiles_are_byte_identical() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("shapes.ttl"), shapes(&natural_order())).unwrap();
-    for dialect in [Dialect::Neo4j, Dialect::Ladybug] {
+    for dialect in [Dialect::Neo4j, Dialect::Ladybug, Dialect::FalkorDb] {
         let first = compile_in(dir.path(), &["shapes.ttl"], dialect);
         let second = compile_in(dir.path(), &["shapes.ttl"], dialect);
         assert_eq!(first.manifest_json(), second.manifest_json());
@@ -115,7 +115,7 @@ fn input_file_order_does_not_matter() {
     let (person, rest) = text.split_at(text.find("\nex:AddressShape").unwrap());
     std::fs::write(dir.path().join("a.ttl"), person).unwrap();
     std::fs::write(dir.path().join("b.ttl"), format!("{PREFIXES}{rest}")).unwrap();
-    for dialect in [Dialect::Neo4j, Dialect::Ladybug] {
+    for dialect in [Dialect::Neo4j, Dialect::Ladybug, Dialect::FalkorDb] {
         let ab = compile_in(dir.path(), &["a.ttl", "b.ttl"], dialect);
         let ba = compile_in(dir.path(), &["b.ttl", "a.ttl"], dialect);
         assert_eq!(ab.manifest_json(), ba.manifest_json());
@@ -128,7 +128,7 @@ fn input_file_order_does_not_matter() {
 fn property_and_triple_order_keep_rules_stable() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("shapes.ttl"), shapes(&natural_order())).unwrap();
-    let baseline: Vec<String> = [Dialect::Neo4j, Dialect::Ladybug]
+    let baseline: Vec<String> = [Dialect::Neo4j, Dialect::Ladybug, Dialect::FalkorDb]
         .iter()
         .map(|&d| stable_view(&compile_in(dir.path(), &["shapes.ttl"], d)))
         .collect();
@@ -142,7 +142,10 @@ fn property_and_triple_order_keep_rules_stable() {
         }
         let turtle = shapes(&order);
         std::fs::write(dir.path().join("shapes.ttl"), &turtle).unwrap();
-        for (dialect, expected) in [Dialect::Neo4j, Dialect::Ladybug].iter().zip(&baseline) {
+        for (dialect, expected) in [Dialect::Neo4j, Dialect::Ladybug, Dialect::FalkorDb]
+            .iter()
+            .zip(&baseline)
+        {
             let view = stable_view(&compile_in(dir.path(), &["shapes.ttl"], *dialect));
             assert_eq!(&view, expected, "property order {order:?}");
         }
@@ -161,7 +164,10 @@ fn property_and_triple_order_keep_rules_stable() {
             format!("{PREFIXES}{}\n", triples.join("\n")),
         )
         .unwrap();
-        for (dialect, expected) in [Dialect::Neo4j, Dialect::Ladybug].iter().zip(&baseline) {
+        for (dialect, expected) in [Dialect::Neo4j, Dialect::Ladybug, Dialect::FalkorDb]
+            .iter()
+            .zip(&baseline)
+        {
             let view = stable_view(&compile_in(dir.path(), &[&name], *dialect));
             if let Some((got, want)) = view.lines().zip(expected.lines()).find(|(g, w)| g != w) {
                 panic!("shuffled triples, round {round}:\n got: {got}\nwant: {want}");

@@ -146,9 +146,95 @@ fn is_bare_comparison(operand: &str) -> bool {
         .any(|operator| unquoted.contains(operator))
 }
 
+/// Constructs FalkorDB evaluates wrongly or that can raise at runtime: pattern
+/// predicates and comprehensions outside `MATCH`, `EXISTS`/`COUNT` subqueries, and
+/// string functions applied to anything but `toStringOrNull(…)`.
+// @lat: [[dialects#Dialect Backends#FalkorDB]]
+pub(crate) fn falkordb_hazards(query: &str) -> Vec<String> {
+    let chars: Vec<char> = query.chars().collect();
+    let mut findings = Vec::new();
+    let mut index = 0;
+    while index < chars.len() {
+        if chars[index] == '\'' {
+            index = skip_string(&chars, index);
+            continue;
+        }
+        for needle in ["EXISTS {", "COUNT {", " =~ ", " IS :: ", "elementId(", "[("] {
+            if starts_with(&chars, index, needle) {
+                findings.push(format!("`{needle}` at {index}"));
+            }
+        }
+        if (starts_with(&chars, index, ")-[") || starts_with(&chars, index, ")<-["))
+            && !in_match_clause(&chars, index)
+        {
+            findings.push(format!("pattern outside MATCH at {index}"));
+        }
+        for (call, allowed) in [
+            (
+                "size(",
+                &[
+                    "toStringOrNull(",
+                    "reduce(",
+                    "[",
+                    "(",
+                    "string.matchRegEx(",
+                    "c",
+                ][..],
+            ),
+            ("string.matchRegEx(", &["toStringOrNull("][..]),
+            ("toString(", &["id("][..]),
+        ] {
+            let preceded_by_word =
+                index > 0 && (chars[index - 1].is_alphanumeric() || chars[index - 1] == '.');
+            if !preceded_by_word && starts_with(&chars, index, call) {
+                let argument = index + call.chars().count();
+                if !allowed
+                    .iter()
+                    .any(|prefix| starts_with(&chars, argument, prefix))
+                {
+                    findings.push(format!("`{call}` over a raw value at {index}"));
+                }
+            }
+        }
+        index += 1;
+    }
+    findings
+}
+
+/// Whether the nearest clause keyword before `index` is `MATCH`.
+fn in_match_clause(chars: &[char], index: usize) -> bool {
+    let before: String = chars[..index].iter().collect();
+    let keyword = ["MATCH ", "WHERE ", "WITH ", "RETURN ", "UNWIND ", "CALL {"]
+        .iter()
+        .filter_map(|keyword| before.rfind(keyword).map(|at| (at, *keyword)))
+        .max_by_key(|(at, _)| *at);
+    matches!(keyword, Some((_, "MATCH ")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flags_falkordb_hazards() {
+        for query in [
+            "MATCH (v0) WHERE (v0)-[:R]->() RETURN v0",
+            "MATCH (v0) RETURN [(v0)-[:R]->(x) | x]",
+            "MATCH (v0) RETURN size(v0.`name`)",
+            "MATCH (v0) RETURN string.matchRegEx(v1, 'a')",
+            "MATCH (v0) RETURN toString(v1)",
+            "MATCH (v0) WHERE EXISTS { MATCH (v0)-[:R]->() } RETURN v0",
+        ] {
+            assert!(!falkordb_hazards(query).is_empty(), "{query}");
+        }
+        for query in [
+            "MATCH (v0)-[x1:R]->(v1) WHERE id(x1) >= 0 RETURN v1",
+            "CALL { WITH v0 OPTIONAL MATCH x2 = (v0)-[:R*1..3]->(x1) RETURN count(DISTINCT x1) > 0 AS c3 }",
+            "RETURN size(toStringOrNull(v1)), size(reduce(a = [], x IN [] | a)), size(string.matchRegEx(toStringOrNull(v1), '[(a)-[b')), size((c1 + c2)), toString(id(v0))",
+        ] {
+            assert!(falkordb_hazards(query).is_empty(), "{query}: {:?}", falkordb_hazards(query));
+        }
+    }
 
     #[test]
     fn flags_bare_comparisons_under_not() {

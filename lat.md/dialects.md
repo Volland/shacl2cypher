@@ -1,6 +1,6 @@
 # Dialects
 
-Cypher generation is split into a dialect-neutral IR and per-dialect renderers. Version 1 ships Neo4j 5 and LadybugDB backends.
+Cypher generation is split into a dialect-neutral IR and per-dialect renderers for Neo4j 5, LadybugDB and FalkorDB.
 
 ## IR
 
@@ -70,6 +70,51 @@ Spike findings (Rust crate `lbug` 0.20.4), which renderers must respect:
 - Introspection: `CALL show_tables()`, `CALL table_info('T')`, `CALL show_connection('R')`.
 - `SystemConfig::read_only(true)` opens a database that rejects writes, which the runner uses.
 - Regex behavior is described in [[semantics#Regex Translation]].
+
+### FalkorDB
+
+Targets FalkorDB 4.20 (C engine) over the Redis protocol, without a schema snapshot. Rendering follows the spike findings below.
+
+Rendering anchors every relationship traversal at a row variable, because FalkorDB evaluates other patterns wrongly:
+
+- Focus: `MATCH (v0:A)` for one label, `MATCH (v0) WHERE v0:A OR v0:B` for several, and `MATCH (s0)-[v0:T]->(e0) WHERE id(v0) >= 0` for relationships.
+- Traversals: each route is a correlated `CALL { WITH <row variables> OPTIONAL MATCH … RETURN <aggregate> AS cN }`.
+  - Single hops bind relationship variables referenced in `WHERE id(r) >= 0`, and variable-length hops bind a path variable.
+  - Alternative routes are `UNION` branches, and nested shapes nest the subqueries.
+- Conditions: aggregates become columns combined in `WITH … WHERE NOT (…)`.
+  - Quantifiers are `all`/`any` over `collect(CASE WHEN y IS NULL THEN null ELSE <test> END)`, and counts are `count(DISTINCT …) op n`.
+  - Pair sides are `collect(DISTINCT id(y))`. Property values stay list expressions.
+- Value tests never raise:
+  - datatype checks use `typeOf`, comparisons use `coalesce`, and length and pattern tests run over `toStringOrNull(v)`;
+  - temporal ranges compare integer keys, and a test-only lint rejects the hazardous constructs.
+- Rows use `toString(id(…))`. Detail queries end with `LIMIT $limit`, and summaries slice `collect(…)[0..$sampleSize]`. Identifiers containing a backtick are compile errors.
+
+Spike findings (FalkorDB v4.20.4, `spikes/falkordb`), which renderers must respect:
+
+- `EXISTS {}`, `COUNT {}` and label expressions `n:A|B` are parse errors; label unions use `WHERE n:A OR n:B`.
+- Pattern predicates are correct only directly in `WHERE`; in `CASE` they are always true.
+- Pattern comprehensions return wrong results without an error when anchored at a variable bound by a list quantifier, list comprehension, `reduce` or a `UNION` in the same `CALL`. `UNWIND` over one fails.
+- Correlated `CALL { WITH x OPTIONAL MATCH … }` with aggregation returns one row per outer row and gives correct results nested at least three levels deep.
+- `MATCH` collapses parallel relationships to one row per node pair unless the relationship variable is referenced (`WHERE id(r) >= 0`). Variable-length hops keep them when bound to a path variable.
+- `CASE` evaluates every branch, and only `AND`/`OR` directly in `WHERE` short-circuit.
+  - `size`, `string.matchRegEx`, `toString` on lists, `keys`, `labels`, `STARTS WITH` and property access raise on the wrong type.
+  - `toStringOrNull` never raises, so length and pattern tests use it. Comparisons across types return null.
+- There is no `IS ::`. `typeOf` returns `String`, `Integer`, `Float`, `Boolean`, `List`, `Null`, `Date`, `Datetime` (local date-time), `Time` (local time), `Duration` or `Point`.
+- There is no `=~`. `string.matchRegEx` (Oniguruma) searches substrings and supports inline flags, `\p{…}`, back-references and `\uHHHH`. It never matches `\x{…}` and reports no error; astral characters work as literals.
+- Temporals:
+  - There is no `datetime()` or `time()`. `localdatetime` drops offsets and fractional seconds and normalizes invalid fields, and `date` rolls over invalid days.
+  - Durations compare as total seconds, and negative or fractional ones are null.
+  - Constants FalkorDB cannot hold exactly are compile errors rather than approximations.
+  - Ordering comparisons of dates, date-times, times and durations are wrong when the values are more than 2^31 seconds (about 68 years) apart, on either side of 1970; equality is correct. Range tests compare integer keys built from `.year`, `.month`, `.day`, `.hour`, `.minute` and `.second` instead.
+  - `toString` does not zero-pad years below 1000 (`999-12-31`), so ISO strings do not order dates.
+- A backtick cannot be escaped inside an identifier. `\uXXXX` is not decoded in strings or identifiers.
+- `LIMIT coalesce(…)` is rejected, while `LIMIT $limit` accepts up to `i64::MAX`. Element ids are `toString(id(n))`, and `toString(1.5)` is `1.500000`.
+- `GRAPH.RO_QUERY` refuses writes and fails on a missing graph, whereas `GRAPH.QUERY` creates it. Without a `TIMEOUT` argument the server's 1000 ms default applies; `TIMEOUT 0` disables it.
+- Introspection uses `CALL db.labels() YIELD label`, `CALL db.relationshipTypes() YIELD relationshipType` and `n[k]`; there is no `db.schema.*`.
+- The Rust crate `falkordb` 0.10.3 (with `redis` 1.2.2) builds on Rust 1.87.
+  - It drops the first word of server errors (`timed out`, `mismatch: …`).
+  - It decodes `localtime` as seconds since 1900-01-01 and fails to decode paths.
+  - Its response timeout does not interrupt a running query.
 
 ### Renderer Probes
 

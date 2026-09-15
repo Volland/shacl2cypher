@@ -1,7 +1,7 @@
-# Back-references run on Neo4j; LadybugDB's RE2 cannot express them, so the
+# Back-references run on Neo4j and FalkorDB; LadybugDB's RE2 cannot express them, so the
 # compiler rejects them there (covered by compile tests).
 shapes: regex-backreference.ttl
-dialects: [neo4j]
+dialects: [neo4j, falkordb]
 graph:
   nodes:
     - {id: t1, labels: [Text], props: {k: "aa"}}

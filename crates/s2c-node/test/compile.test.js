@@ -45,10 +45,17 @@ test('output matches the CLI byte for byte', { skip: !cli && 'CLI not built' }, 
   assert.equal(compilation.cypher, fs.readFileSync(path.join(out, 'queries.cypher'), 'utf8'));
 });
 
+test('compiles for FalkorDB without a schema', async () => {
+  const compilation = await s2c.compile({ shapes: [SHAPES], dialect: 'falkordb', nodeKey: 'id' });
+  assert.equal(compilation.manifest.dialect, 'falkordb');
+  assert.ok(compilation.cypher.includes('LIMIT $limit;'));
+  assert.ok(!compilation.cypher.includes('EXISTS {'));
+});
+
 test('option values and names are checked', async () => {
   await assert.rejects(s2c.compile({ shapes: [SHAPES], dialect: 'postgres' }), {
     name: 'TypeError',
-    message: /dialect must be one of neo4j, ladybug/,
+    message: /dialect must be one of neo4j, ladybug, falkordb/,
   });
   await assert.rejects(s2c.compile({ shapes: [SHAPES], dialect: 'neo4j', neo4jLabels: 'all' }), TypeError);
   await assert.rejects(s2c.compile({ shapes: [SHAPES], dialect: 'neo4j', nodekey: 'id' }), /unknown compile option: nodekey/);

@@ -45,5 +45,8 @@ fn all_fixtures_load_and_project() {
         if fixture.runs_on("ladybug") {
             lpg::ladybug_script(&fixture).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         }
+        if fixture.runs_on("falkordb") {
+            lpg::falkordb_script(&fixture).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        }
     }
 }
