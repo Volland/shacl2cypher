@@ -108,7 +108,7 @@ Spike findings (FalkorDB v4.20.4, `spikes/falkordb`), which renderers must respe
   - Ordering comparisons of dates, date-times, times and durations are wrong when the values are more than 2^31 seconds (about 68 years) apart, on either side of 1970; equality is correct. Range tests compare integer keys built from `.year`, `.month`, `.day`, `.hour`, `.minute` and `.second` instead.
   - `toString` does not zero-pad years below 1000 (`999-12-31`), so ISO strings do not order dates.
 - A backtick cannot be escaped inside an identifier. `\uXXXX` is not decoded in strings or identifiers.
-- `LIMIT coalesce(…)` is rejected, while `LIMIT $limit` accepts up to `i64::MAX`. Element ids are `toString(id(n))`, and `toString(1.5)` is `1.500000`.
+- `LIMIT coalesce(…)` is rejected. On the arm64 build `LIMIT $limit` accepts up to `i64::MAX`, but the amd64 build (the one CI runs) returns no rows for some limits above `u32::MAX`, including `i64::MAX`. The executor therefore caps `$limit` and `$sampleSize` at `i32::MAX`. Element ids are `toString(id(n))`, and `toString(1.5)` is `1.500000`.
 - `GRAPH.RO_QUERY` refuses writes and fails on a missing graph, whereas `GRAPH.QUERY` creates it. Without a `TIMEOUT` argument the server's 1000 ms default applies; `TIMEOUT 0` disables it.
 - Introspection uses `CALL db.labels() YIELD label`, `CALL db.relationshipTypes() YIELD relationshipType` and `n[k]`; there is no `db.schema.*`.
 - The Rust crate `falkordb` 0.10.3 (with `redis` 1.2.2) builds on Rust 1.87.

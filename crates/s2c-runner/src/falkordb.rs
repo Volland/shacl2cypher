@@ -70,9 +70,13 @@ impl FalkorDbExecutor {
         let mut graph = self.client.select_graph(&self.graph);
         let mut builder = graph.ro_query(query);
         if let Some(params) = params {
+            // The amd64 server build returns no rows for some limits above u32::MAX
+            // (including the i64::MAX sent for "no limit"), so parameters stay in i32.
+            // @lat: [[dialects#Dialect Backends#FalkorDB]]
+            let cap = i64::from(i32::MAX);
             builder = builder
-                .with_param("limit", params.limit)
-                .with_param("sampleSize", params.sample_size);
+                .with_param("limit", params.limit.min(cap))
+                .with_param("sampleSize", params.sample_size.min(cap));
         }
         // Without an explicit TIMEOUT the server applies its own default (1000 ms).
         let milliseconds = timeout.map_or(0, |timeout| {

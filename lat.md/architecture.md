@@ -122,6 +122,7 @@ Backends are cargo features of `shacl2cypher-runner` and `shacl2cypher`; without
   - Queries only run through `GRAPH.RO_QUERY`, which refuses writes and never creates a graph. A graph missing from `GRAPH.LIST` is a setup error.
   - `--timeout` becomes the server-side `TIMEOUT`; without it the runner sends `TIMEOUT 0`, because the server otherwise stops queries after 1000 ms. The client's own response timeout does not interrupt queries.
   - The client drops the first word of server errors, so a timeout is recognized by its `timed out` suffix. Rows convert to JSON explicitly, with dates, local date-times and local times as ISO strings and durations as `PT<seconds>S`.
+  - `$limit` and `$sampleSize` are capped at `i32::MAX`, because the amd64 server build returns no rows for larger limits such as the `i64::MAX` sent for "no limit".
 
 ### Schema Dump
 

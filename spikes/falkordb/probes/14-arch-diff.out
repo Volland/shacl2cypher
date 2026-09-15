@@ -1,0 +1,136 @@
+######## s2c-falkordb (aarch64)
+
+>> MATCH (v0:Person) RETURN v0.id, typeOf(v0.name), v0.name IS NULL ORDER BY v0.id
+v0.id
+typeOf(v0.name)
+v0.name IS NULL
+p1
+String
+false
+p2
+Null
+true
+p3
+Null
+true
+
+>> MATCH (v0:Person) RETURN v0.id, CASE typeOf(v0.name) WHEN 'Null' THEN [] WHEN 'List' THEN v0.name ELSE [v0.name] END AS l ORDER BY v0.id
+v0.id
+l
+p1
+[Ann]
+p2
+[]
+p3
+[]
+
+>> MATCH (v0:Person) RETURN v0.id, CASE typeOf(v0.name) WHEN 'Null' THEN 'null' ELSE 'other' END AS simple, CASE WHEN typeOf(v0.name) = 'Null' THEN 'null' ELSE 'other' END AS searched ORDER BY v0.id
+v0.id
+simple
+searched
+p1
+other
+other
+p2
+null
+null
+p3
+null
+null
+
+>> MATCH (v0:Person) RETURN v0.id, size(reduce(x2 = [], x1 IN CASE typeOf(v0.name) WHEN 'Null' THEN [] WHEN 'List' THEN v0.name ELSE [v0.name] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) AS n ORDER BY v0.id
+v0.id
+n
+p1
+1
+p2
+0
+p3
+0
+
+>> MATCH (v0:Person) RETURN v0.id, reduce(acc = [], x IN ['a', 'b'] | acc + [x]) AS r, size([x IN coalesce(v0.name, []) | x]) AS c ORDER BY v0.id
+Type mismatch: expected List or Null but was String
+
+
+>> MATCH (v0:Person) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.name) WHEN 'Null' THEN [] WHEN 'List' THEN v0.name ELSE [v0.name] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) RETURN v0.id ORDER BY v0.id
+v0.id
+p2
+p3
+
+>> compiled summary
+ruleId
+severity
+violationCount
+sample
+PersonShape.name.minCount
+Violation
+2
+[{label: Person, key: id, keyValue: p2, elementId: 1}, {label: Person, key: id, keyValue: p3, elementId: 2}]
+######## s2c-falkordb-amd64 (x86_64)
+
+>> MATCH (v0:Person) RETURN v0.id, typeOf(v0.name), v0.name IS NULL ORDER BY v0.id
+v0.id
+typeOf(v0.name)
+v0.name IS NULL
+p1
+String
+false
+p2
+Null
+true
+p3
+Null
+true
+
+>> MATCH (v0:Person) RETURN v0.id, CASE typeOf(v0.name) WHEN 'Null' THEN [] WHEN 'List' THEN v0.name ELSE [v0.name] END AS l ORDER BY v0.id
+v0.id
+l
+p1
+[Ann]
+p2
+[]
+p3
+[]
+
+>> MATCH (v0:Person) RETURN v0.id, CASE typeOf(v0.name) WHEN 'Null' THEN 'null' ELSE 'other' END AS simple, CASE WHEN typeOf(v0.name) = 'Null' THEN 'null' ELSE 'other' END AS searched ORDER BY v0.id
+v0.id
+simple
+searched
+p1
+other
+other
+p2
+null
+null
+p3
+null
+null
+
+>> MATCH (v0:Person) RETURN v0.id, size(reduce(x2 = [], x1 IN CASE typeOf(v0.name) WHEN 'Null' THEN [] WHEN 'List' THEN v0.name ELSE [v0.name] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) AS n ORDER BY v0.id
+v0.id
+n
+p1
+1
+p2
+0
+p3
+0
+
+>> MATCH (v0:Person) RETURN v0.id, reduce(acc = [], x IN ['a', 'b'] | acc + [x]) AS r, size([x IN coalesce(v0.name, []) | x]) AS c ORDER BY v0.id
+Type mismatch: expected List or Null but was String
+
+
+>> MATCH (v0:Person) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.name) WHEN 'Null' THEN [] WHEN 'List' THEN v0.name ELSE [v0.name] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) RETURN v0.id ORDER BY v0.id
+v0.id
+p2
+p3
+
+>> compiled summary
+ruleId
+severity
+violationCount
+sample
+PersonShape.name.minCount
+Violation
+2
+[{label: Person, key: id, keyValue: p2, elementId: 1}, {label: Person, key: id, keyValue: p3, elementId: 2}]

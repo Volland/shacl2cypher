@@ -1,0 +1,22 @@
+######## s2c-falkordb (aarch64)
+  limit 2                    param rows=2 literal rows=2
+  limit 1000                 param rows=3 literal rows=3
+  limit 2147483647           param rows=3 literal rows=3
+  limit 2147483648           param rows=3 literal rows=3
+  limit 4294967295           param rows=3 literal rows=3
+  limit 4294967296           param rows=3 literal rows=3
+  limit 9007199254740991     param rows=3 literal rows=3
+  limit 4611686018427387904  param rows=3 literal rows=3
+  limit 9223372036854775806  param rows=3 literal rows=3
+  limit 9223372036854775807  param rows=3 literal rows=3
+######## s2c-falkordb-amd64 (x86_64)
+  limit 2                    param rows=2 literal rows=2
+  limit 1000                 param rows=3 literal rows=3
+  limit 2147483647           param rows=3 literal rows=3
+  limit 2147483648           param rows=3 literal rows=3
+  limit 4294967295           param rows=3 literal rows=3
+  limit 4294967296           param rows=0 literal rows=0
+  limit 9007199254740991     param rows=3 literal rows=3
+  limit 4611686018427387904  param rows=0 literal rows=0
+  limit 9223372036854775806  param rows=0 literal rows=0
+  limit 9223372036854775807  param rows=0 literal rows=0
