@@ -1468,7 +1468,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "s2c-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "napi",
  "napi-build",
@@ -1482,7 +1482,7 @@ dependencies = [
 
 [[package]]
 name = "s2c-python"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "pyo3",
  "pythonize",
@@ -1493,7 +1493,7 @@ dependencies = [
 
 [[package]]
 name = "s2c-testkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "lbug",
  "oxrdf",
@@ -1622,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "shacl2cypher"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "serde_json",
@@ -1633,7 +1633,7 @@ dependencies = [
 
 [[package]]
 name = "shacl2cypher-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "insta",
  "oxrdf",
@@ -1649,7 +1649,7 @@ dependencies = [
 
 [[package]]
 name = "shacl2cypher-runner"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "lbug",
  "neo4rs",

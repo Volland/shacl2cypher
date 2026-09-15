@@ -1,13 +1,23 @@
 {
   "name": "shacl2cypher-linux-x64-gnu",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "shacl2cypher native addon for Linux x64 (glibc)",
   "license": "MIT",
   "repository": "https://github.com/Volland/shacl2cypher",
   "main": "shacl2cypher.linux-x64-gnu.node",
-  "files": ["shacl2cypher.linux-x64-gnu.node"],
-  "os": ["linux"],
-  "cpu": ["x64"],
-  "libc": ["glibc"],
-  "engines": { "node": ">=18" }
+  "files": [
+    "shacl2cypher.linux-x64-gnu.node"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
 }

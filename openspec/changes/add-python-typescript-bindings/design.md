@@ -165,6 +165,6 @@ The timeout is `timeout` in seconds (a float) in Python, following `socket` and 
 - Roll out in order: core documents → runner glue and CLI refactor → Python → Node → CI → release. Every step is mergeable on its own.
 - Rollback: binding releases can be yanked on PyPI or deprecated on npm independently of the Rust binaries. Reverting the release workflow jobs does not affect the binary release.
 
-## Open Questions
+## Resolved During Implementation
 
-- Should the first binding release be `0.1.1` or wait for `0.2.0`? This depends only on release timing, since the version comes from the workspace.
+- `CompileRequest` gained public fields and derives `Default` instead of a `CompileRequest::new` constructor. Code building it with a struct literal must add `..CompileRequest::default()`, which is a breaking change for Rust users, so the first binding release is `0.2.0`.

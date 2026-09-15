@@ -1,6 +1,6 @@
 {
   "name": "shacl2cypher",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Compile SHACL shapes into Cypher diagnostic queries and validate Neo4j or LadybugDB graphs",
   "license": "MIT",
   "repository": {
@@ -8,7 +8,13 @@
     "url": "https://github.com/Volland/shacl2cypher"
   },
   "homepage": "https://github.com/Volland/shacl2cypher#readme",
-  "keywords": ["shacl", "cypher", "neo4j", "ladybugdb", "validation"],
+  "keywords": [
+    "shacl",
+    "cypher",
+    "neo4j",
+    "ladybugdb",
+    "validation"
+  ],
   "main": "index.js",
   "types": "index.d.ts",
   "exports": {
@@ -18,18 +24,27 @@
       "require": "./index.js"
     }
   },
-  "files": ["index.js", "index.mjs", "index.d.ts", "README.md"],
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
   "napi": {
     "binaryName": "shacl2cypher",
-    "targets": ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"]
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-apple-darwin"
+    ]
   },
   "optionalDependencies": {
-    "shacl2cypher-darwin-arm64": "0.1.0",
-    "shacl2cypher-linux-arm64-gnu": "0.1.0",
-    "shacl2cypher-linux-x64-gnu": "0.1.0"
+    "shacl2cypher-darwin-arm64": "0.2.0",
+    "shacl2cypher-linux-arm64-gnu": "0.2.0",
+    "shacl2cypher-linux-x64-gnu": "0.2.0"
   },
   "scripts": {
     "build": "napi build --platform --release --no-js --dts native.d.ts --features neo4j,ladybug,remote-imports",
