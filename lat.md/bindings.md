@@ -81,6 +81,12 @@ Pushing a `v*` tag builds every wheel, the sdist and every addon, smoke-tests th
 - Each job smoke-tests its artifacts with `tests/bindings/smoke.py` and `smoke.js`: backends, a compile, and validation of an `s2c-fixture ladybug-db` database. The `sdist` job installs its archive as a compile-only build (`MATURIN_PEP517_ARGS`) and smoke-tests that.
 - `publish` needs every build and uploads wheels and sdist with PyPI trusted publishing, then the npm platform packages and the main package with `NPM_TOKEN` and provenance.
 
+`scripts/release.sh <version>` drives a release end to end:
+- It checks that the tree is clean on a synced `main`, the tag is new, and the `release` environment and its `NPM_TOKEN` exist.
+- It bumps the workspace version, crate requirements, npm packages, Cypher snapshot headers and `Cargo.lock`, then runs fmt, clippy and tests.
+- It commits, pushes, waits for CI, and asks before pushing the tag. It then waits for the Release workflow.
+- Options: `--publish-crates` also runs `cargo publish` for the three crates; `--dry-run` only checks and prints the plan.
+
 ## Testing
 
 Each binding has its own suite that runs against the CLI and `s2c-fixture ladybug-db` databases built from the conformance fixtures.
