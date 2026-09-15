@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6. Relationships and paths — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 6: validating relationships with SHACL — endpoint classes, when a path is a relationship, incoming relationships, sequences, alternatives and transitive paths.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>6. Relationships and paths</h1>
+  <p class="lede">Relationships are what make a graph a graph. In SHACL they are just paths whose values happen to be nodes, so everything from the last two chapters applies to them, plus a few path forms that walk further.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html" aria-current="page">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<p>Examples: <a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/06-relationships.ttl"><code>06-relationships.ttl</code></a>.</p>
+
+<h2>A relationship with an endpoint class</h2>
+<pre><code>ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:worksFor ;
+        sh:class ex:Company ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .</code></pre>
+<p>"Every person works for exactly one thing, and that thing is a <code>:Company</code>." <code>sh:class</code> checks each value's label. It is also the hint that tells shacl2cypher <code>ex:worksFor</code> is a relationship, so it becomes <code>WORKS_FOR</code>:</p>
+<pre><code>// name: PersonShape.worksFor.class
+MATCH (v0:`Person`)
+MATCH (v0)-[:`WORKS_FOR`]-&gt;(v1)
+WITH DISTINCT v0, v1
+WHERE NOT (v1:`Company`)
+RETURN …, {label: head(labels(v1)), keyValue: v1.`id`, elementId: elementId(v1)} AS value, …</code></pre>
+<p>The offending <code>value</code> in the report is the end node itself: its label, key and element id.</p>
+
+<h2>When is a path a relationship?</h2>
+<p>Property or relationship is the most important mapping decision, and the one to understand before writing relationship shapes. A step is a relationship if any of these apply, checked in this order:</p>
+<ol>
+  <li>It is annotated: <code>ex:employer s2c:relationship "WORKS_FOR"</code> (or <code>s2c:direction</code>).</li>
+  <li>It must yield nodes: an inverse step, a repeated step, or any step before the last one in a sequence.</li>
+  <li>Its property shape says the values are nodes: <code>sh:class</code>, <code>sh:node</code>, or <code>sh:nodeKind sh:IRI</code>.</li>
+  <li>A schema snapshot declares the relationship type and no such property.</li>
+</ol>
+<p>Otherwise it's a property. Names follow convention: <code>ex:worksFor</code> → <code>WORKS_FOR</code>. When your relationship type differs from the predicate's name, annotate the predicate:</p>
+<pre><code>ex:employer s2c:relationship "WORKS_FOR" .
+ex:ContractorShape a sh:NodeShape ;
+    sh:targetClass ex:Contractor ;
+    sh:property [ sh:path ex:employer ; sh:maxCount 1 ] .</code></pre>
+
+<h2>Incoming relationships</h2>
+<pre><code>ex:CompanyShape a sh:NodeShape ;
+    sh:targetClass ex:Company ;
+    sh:property [
+        sh:path [ sh:inversePath ex:worksFor ] ;
+        sh:minCount 1 ;
+    ] .</code></pre>
+<p><code>sh:inversePath</code> walks a relationship backwards: from a company to the people who work for it. "Every company has at least one employee." The rule is named <code>CompanyShape.inv_worksFor.minCount</code>.</p>
+
+<h2>Sequences: several hops</h2>
+<pre><code>sh:property [
+    sh:path ( ex:worksFor ex:locatedIn ) ;
+    sh:class ex:City ;
+] ;</code></pre>
+<p>A list as a path means "follow each step in turn": <code>(person)-[:WORKS_FOR]-&gt;()-[:LOCATED_IN]-&gt;(x)</code>, and every <code>x</code> must be a <code>:City</code>. Rule name: <code>PersonShape.worksFor.locatedIn.class</code>.</p>
+
+<h2>Alternatives</h2>
+<pre><code>sh:property [
+    sh:path [ sh:alternativePath ( ex:email ex:phone ) ] ;
+    sh:minCount 1 ;
+] .</code></pre>
+<p>The values are the union of both paths: "at least one email or phone". The steps of an alternative must all be properties or all be relationships. On LadybugDB, alternatives across different relationship routes are not supported.</p>
+
+<h2>Transitive paths</h2>
+<pre><code>sh:property [
+    sh:path [ sh:zeroOrMorePath ex:manages ] ;
+    sh:class ex:Person ;
+] ;</code></pre>
+<p>"Everyone reachable down the management chain, including yourself, is a <code>:Person</code>." <code>sh:oneOrMorePath</code> excludes the start node, and <code>sh:zeroOrOnePath</code> is at most one hop. Unbounded repeats are capped by <code>--max-path-depth</code> (default 10), and the cap is recorded on the rule:</p>
+<pre><code>// name: PersonShape.manages_star.class
+MATCH (v0:`Person`)
+MATCH (v0)-[:`MANAGES`*0..10]-&gt;(v1)
+WITH DISTINCT v0, v1
+WHERE NOT (v1:`Person`)</code></pre>
+<p>These rules get the cost class <code>unbounded-path</code>, the most expensive kind. LadybugDB allows at most 30 hops.</p>
+
+<h2>Direction for a reverse-named predicate</h2>
+<p>If your vocabulary says <code>ex:employs</code> (company → person) but the graph stores <code>(:Person)-[:WORKS_FOR]-&gt;(:Company)</code>, keep the vocabulary:</p>
+<pre><code>ex:employs s2c:relationship "WORKS_FOR" ; s2c:direction "in" .</code></pre>
+
+<div class="try">
+  <div class="k">Try it</div>
+  <p>Remove <code>sh:class ex:Company</code> from the <code>worksFor</code> shape and compile. Without the hint and without a schema, <code>worksFor</code> is checked as a <em>property</em>. Now compile again with a schema snapshot that declares <code>WORKS_FOR</code>: the evidence brings the relationship back.</p>
+</div>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li>A relationship is a path whose values are nodes; <code>sh:class</code> checks their labels.</li>
+    <li>Make relationships explicit with hints, a schema snapshot, or <code>s2c:relationship</code>.</li>
+    <li><code>sh:inversePath</code>, sequences, alternatives and repeated paths cover incoming, multi-hop, either-or and transitive rules.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="05-values.html"><div class="dir">← Previous</div><div class="t">5. Constraining values</div></a>
+  <a class="next-ch" href="07-compare-closed.html"><div class="dir">Next →</div><div class="t">7. Comparing properties and closing shapes</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

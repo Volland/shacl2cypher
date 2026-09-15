@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compiling SHACL instead of interpreting it — shacl2cypher</title>
+<meta name="description" content="The design decisions behind shacl2cypher: compiling SHACL into Cypher, one query per constraint, null safety, regex translation, determinism and differential testing.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="../book/index.html">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="index.html" aria-current="page">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Articles</a>
+  <h1>Compiling SHACL instead of interpreting it</h1>
+  <p class="lede">Property graphs built by applications have no SHACL engine. shacl2cypher doesn't bring one to them. It translates each rule into a query the database already knows how to run. This article explains why, and what that choice forced us to get right.</p>
+  <p class="post-meta">Design · shacl2cypher 0.2.0</p>
+</div>
+
+<div class="wrap">
+<article class="post">
+
+<h2>The gap</h2>
+<p>SHACL is a good language for data rules. It is declarative, standardized by the W3C, and understood by tools outside your team. But every SHACL engine assumes RDF: a triple store, IRIs, literals. Graphs in Neo4j or LadybugDB are built by applications. They have labels, typed properties and relationships that carry their own properties.</p>
+<p>The obvious workaround is to export the graph to RDF and validate the copy. It is expensive for large graphs, stale by the time it finishes, and it answers questions about a projection rather than the data your application reads. It also loses relationship properties, which RDF cannot represent without reification.</p>
+<p>shacl2cypher takes the other route. The shapes travel to the data: each constraint becomes Cypher that runs where the data is, uses the database's indexes, and never writes.</p>
+
+<h2>One query per constraint</h2>
+<p>A single giant validation query would be simpler to generate and impossible to live with. You couldn't time it, couldn't tell which rule was slow, and couldn't skip the expensive one. So the unit of compilation is one <em>constraint component instance</em>: <code>sh:minCount</code> on <code>ex:name</code> in <code>ex:PersonShape</code> is one rule.</p>
+<p>Each rule gets two queries that share one violation pattern:</p>
+<ul>
+  <li>A <strong>summary</strong> query returns exactly one row, <code>violationCount</code> plus a sample of focus nodes, even when the count is zero. A passing rule is therefore distinguishable from a rule that never ran.</li>
+  <li>A <strong>detail</strong> query returns one row per violation: rule, focus node, offending value, message, and for nested shapes the inner rules that failed.</li>
+</ul>
+<p>The runner executes every summary and runs details only where something failed. Because every detail query returns the same columns, a runner may also <code>UNION ALL</code> them.</p>
+
+<h2>Names that survive edits</h2>
+<p>Rule ids are structural, not positional: <code>ex:PersonShape/ex:address/sh:or[0]/ex:street/sh:minCount</code>. Moving a shape within a file, reordering <code>sh:property</code> values or renaming blank nodes changes nothing. A determinism test shuffles every triple of a shapes graph and requires byte-identical output. That test caught an early version ordering rules by source position.</p>
+<p>Each rule also carries a <code>fingerprint</code>: a hash of its canonical meaning and dialect. When a rule keeps its name but changes what it checks, the fingerprint changes, and code review shows it.</p>
+
+<h2>Cypher's null logic is the enemy</h2>
+<p>The subtlest failure a validator can have is a violation that silently isn't reported. Cypher's three-valued logic makes that easy. Take a naive range check:</p>
+<pre><code>MATCH (p:Person)
+WHERE NOT (p.age &gt;= 0)
+RETURN p</code></pre>
+<p>If <code>age</code> is the string <code>"forty"</code>, the comparison is <code>null</code>, <code>NOT null</code> is <code>null</code>, and the row is filtered out. The broken value passes. In SHACL it is a violation.</p>
+<p>So every value test is null-safe by construction. Predicates are wrapped as <code>coalesce(test, false)</code> before negation, so a type-incompatible comparison counts as a failure. Functions that raise on the wrong type, such as Neo4j's <code>size()</code> on a number, sit behind explicit type guards. Scalars and lists are normalized into value sets so that absent, <code>null</code> and empty lists all mean "no values". A lint test scans every rendered query for a bare comparison directly under <code>NOT</code> and fails the build if it finds one.</p>
+
+<h2>Regexes are parsed, never passed through</h2>
+<p><code>sh:pattern</code> uses XSD regular expressions with substring matching. Neo4j's <code>=~</code> is Java regex and fully anchored. LadybugDB uses RE2, which silently returns false for back-references instead of failing. Passing a pattern through verbatim would be wrong on every engine in a different way.</p>
+<p>Patterns are therefore parsed into an AST, validated at compile time with errors at the source line, and rendered per engine. XSD features neither engine supports, such as character-class subtraction (<code>[a-z-[aeiou]]</code>) and <code>\i</code>/<code>\c</code> name classes, are expanded into explicit ranges. Constructs one engine can't evaluate, such as back-references on LadybugDB, are compile errors rather than quietly wrong queries.</p>
+
+<h2>Convention, evidence, annotation</h2>
+<p>Mapping RDF terms to a property graph needs defaults, or nobody would bother. It also needs a way to be exact, or teams wouldn't trust it. The resolution order reflects that: naming conventions first, schema-snapshot evidence over conventions, and explicit <code>s2c:</code> annotations over everything.</p>
+<p>Annotation parsing is deliberately strict. A misspelt <code>s2c:relatonship</code> is a compile error, not a silent fall-back to convention. <code>--strict</code> goes further and rejects any name that only a convention chose.</p>
+
+<h2>Let the schema answer what it can</h2>
+<p>LadybugDB enforces types. If <code>email</code> is a <code>STRING</code> column, checking <code>sh:datatype xsd:string</code> by scanning every node wastes time, so the rule is marked <code>guaranteed-by-schema</code> and gets no query. If the column is <code>INT64</code>, no data can ever satisfy the constraint; that is a design error, reported as a static diagnostic at compile time. Neo4j snapshots describe observed data rather than enforced types, so on Neo4j those rules always run.</p>
+
+<h2>How we know it is right</h2>
+<p>A compiler that emits validation queries needs its own validation. Four layers provide it:</p>
+<ul>
+  <li><strong>Differential conformance fixtures.</strong> Each fixture is a neutral YAML graph with a hand-written list of expected violations. It is projected to RDF for pySHACL, and to Neo4j and LadybugDB for shacl2cypher. All must agree with the list; documented engine differences are recorded per engine, never as silent passes.</li>
+  <li><strong>The W3C SHACL Core suite</strong> runs on Neo4j, projected RDF→LPG. Of 98 tests, 27 pass. 46 are skipped because they use <code>sh:targetNode</code>, 19 because they validate literal focus nodes, 2 for language tags and 2 because a predicate has both literal and IRI values, which has no property-graph form. One is a compile skip, and one fails because it needs property shapes nested inside property shapes, which are not supported yet. Every outcome is committed in <code>tests/w3c/status.yaml</code>.</li>
+  <li><strong>Literal round-trip fuzzing</strong> renders random strings, identifiers and typed constants, runs <code>RETURN &lt;literal&gt;</code> on the database, and compares. It found two real defects: Neo4j decodes <code>\uXXXX</code> inside backticked identifiers, and the neo4rs 0.8 driver decoded the integers −16…−1 as 240…255.</li>
+  <li><strong>Renderer smoke runs</strong> execute every rendered query on both engines and compare counts. They found a LadybugDB bug where <code>UNWIND list_filter(coalesce(…))</code> leaks list elements into rows whose list is null. The renderer now avoids that construct.</li>
+</ul>
+
+<h2>One engine, three front doors</h2>
+<p>The compiler is a pure Rust crate with no database I/O. The runner adds Neo4j (Bolt) and LadybugDB (embedded) behind cargo features. The CLI, the Python package and the Node.js package are thin layers over the same two crates. Their manifests, queries and reports are byte-identical, and the binding test suites check that parity against the CLI.</p>
+
+<h2>What's next</h2>
+<ul>
+  <li><strong>FalkorDB</strong>, as a third dialect with its own renderer. See <a href="falkordb.html">Bringing SHACL validation to FalkorDB</a>.</li>
+  <li>Property shapes nested inside property shapes, the one W3C Core failure.</li>
+  <li>Partitioned execution with <code>$skip</code>/<code>$batch</code> for very large graphs. Today, cost classes and recommended indexes are the tools for ordering and speeding up expensive rules.</li>
+</ul>
+
+</article>
+<p class="post-source">The design notes this article summarizes live in the repository's <a href="https://github.com/Volland/shacl2cypher/tree/main/lat.md"><code>lat.md/</code></a> knowledge graph.</p>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

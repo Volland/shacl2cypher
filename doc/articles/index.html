@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Articles — shacl2cypher</title>
+<meta name="description" content="Articles about how shacl2cypher is designed and tested, and how FalkorDB support is being built.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="../book/index.html">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="index.html" aria-current="page">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <span class="eyebrow">Articles</span>
+  <h1>Notes from building a SHACL compiler</h1>
+  <p class="lede">Why the compiler is shaped the way it is, and what it takes to support another Cypher dialect.</p>
+</div>
+
+<section class="wrap tight">
+  <div class="posts">
+    <a class="post-card" href="about.html">
+      <div class="meta">Design</div>
+      <div class="k">Compiling SHACL instead of interpreting it</div>
+      <div class="v">Property graphs have no SHACL engine. Here is why shacl2cypher generates one query per constraint, treats Cypher's null logic as the main enemy, and tests itself against reference engines.</div>
+    </a>
+    <a class="post-card" href="falkordb.html">
+      <div class="meta">Integration · in progress</div>
+      <div class="k">Bringing SHACL validation to FalkorDB</div>
+      <div class="v">FalkorDB speaks Cypher, but not Neo4j's. A spike found three constructs that return wrong answers without any error. This article covers those findings and the renderer designed around them.</div>
+    </a>
+  </div>
+</section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

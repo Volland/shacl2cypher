@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2. Turtle and your first shape — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 2: enough Turtle syntax to read and write SHACL, a first node shape, and the Cypher queries it compiles into.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>2. Turtle and your first shape</h1>
+  <p class="lede">Shapes are written in Turtle, a compact text format for RDF. Ten minutes of syntax is all you need. Then we write a shape, compile it, and read the query it becomes.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html" aria-current="page">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<h2>Turtle in ten minutes</h2>
+<p>A Turtle file is a list of statements. Each statement is <em>subject predicate object</em>, ending with a full stop:</p>
+<pre><code>&lt;http://example.org/hr#PersonShape&gt; &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&gt; &lt;http://www.w3.org/ns/shacl#NodeShape&gt; .</code></pre>
+<p>Nobody writes it like that. Five pieces of shorthand make it readable.</p>
+
+<h3>1. Prefixes</h3>
+<p>Declare a short name for a namespace once, then write <code>prefix:localName</code>:</p>
+<pre><code>@prefix sh: &lt;http://www.w3.org/ns/shacl#&gt; .
+@prefix ex: &lt;http://example.org/hr#&gt; .
+
+ex:PersonShape rdf:type sh:NodeShape .</code></pre>
+<p>The local name matters to shacl2cypher: <code>ex:Person</code> becomes the label <code>Person</code>, and <code>ex:name</code> becomes the property <code>name</code>.</p>
+
+<h3>2. <code>a</code></h3>
+<p><code>a</code> is short for <code>rdf:type</code>: <code>ex:PersonShape a sh:NodeShape .</code></p>
+
+<h3>3. <code>;</code> repeats the subject</h3>
+<pre><code>ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person .</code></pre>
+
+<h3>4. <code>,</code> repeats subject and predicate</h3>
+<pre><code>ex:PersonShape sh:property ex:NameShape , ex:EmailShape .</code></pre>
+
+<h3>5. <code>[ … ]</code> is an unnamed node, <code>( … )</code> is a list</h3>
+<p>Brackets create an anonymous thing inline, which is how most property shapes are written. Parentheses create an ordered list:</p>
+<pre><code>ex:PersonShape sh:property [ sh:path ex:name ; sh:minCount 1 ] .
+ex:StatusShape sh:in ( "active" "on-leave" "left" ) .</code></pre>
+
+<h3>Literals</h3>
+<p>Strings are quoted. Numbers and booleans can be bare. Anything else carries a datatype with <code>^^</code>:</p>
+<pre><code>"Ann"     42     3.5     true     "2024-01-31"^^xsd:date</code></pre>
+<p>Comments start with <code>#</code>. That's the whole language, as far as this book needs it.</p>
+
+<h2>Your first shape</h2>
+<p><a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/02-first-shape.ttl"><code>02-first-shape.ttl</code></a>:</p>
+<pre><code>@prefix sh:  &lt;http://www.w3.org/ns/shacl#&gt; .
+@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+@prefix ex:  &lt;http://example.org/hr#&gt; .
+
+<span class="c-com"># Every node labelled :Person must have exactly one string name.</span>
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path     ex:name ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .</code></pre>
+<p>Read it top to bottom:</p>
+<ul>
+  <li><code>ex:PersonShape a sh:NodeShape</code>: this is a shape about nodes.</li>
+  <li><code>sh:targetClass ex:Person</code>: it applies to every <code>:Person</code> node. Each one becomes a <em>focus node</em>.</li>
+  <li><code>sh:property [ … ]</code>: a property shape. From each focus node, follow <code>sh:path ex:name</code> to get the values.</li>
+  <li>Three constraints on those values: they are strings, there is at least one, and there is at most one.</li>
+</ul>
+
+<h2>Compile it</h2>
+<pre><code>shacl2cypher compile doc/examples/book/02-first-shape.ttl --dialect neo4j --node-key id -o out/</code></pre>
+<pre><code>compiled 3 rules (3 with queries, 0 static diagnostics) for neo4j into out/</code></pre>
+<p>Three constraints, three rules: <code>PersonShape.name.datatype</code>, <code>PersonShape.name.maxCount</code> and <code>PersonShape.name.minCount</code>. Here is the detail query for <code>minCount</code> from <code>out/queries.cypher</code>, exactly as generated:</p>
+<pre><code>// name: PersonShape.name.minCount
+// ruleId: ex:PersonShape/ex:name/sh:minCount
+MATCH (v0:`Person`)
+WITH v0
+WHERE NOT (size(reduce(x2 = [], x1 IN CASE WHEN v0.`name` IS NULL THEN [] WHEN v0.`name` IS :: LIST&lt;ANY&gt; THEN v0.`name` ELSE [v0.`name`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) &gt;= 1)
+RETURN 'PersonShape.name.minCount' AS ruleId, 'ex:PersonShape' AS shape, 'ex:name' AS path, 'sh:minCount' AS `constraint`, 'Violation' AS severity,
+       {label: head([l IN labels(v0) WHERE l IN ['Person']] + labels(v0)), key: 'id', keyValue: v0.`id`, elementId: elementId(v0)} AS focus, null AS value, 'ex:PersonShape violates sh:minCount on ex:name' AS message, [] AS details
+LIMIT coalesce($limit, 9223372036854775807);</code></pre>
+<p>It is more than <code>WHERE p.name IS NULL</code>, and every part is there for a reason:</p>
+<ul>
+  <li><code>MATCH (v0:`Person`)</code> is the target: every focus node.</li>
+  <li>The <code>CASE</code> turns <code>name</code> into a list of values: <code>null</code> becomes <code>[]</code>, a list stays a list, and a single value becomes <code>[value]</code>. Neo4j lets any property hold a list, so SHACL's "number of values" has to handle both.</li>
+  <li><code>reduce(…)</code> removes nulls and duplicates. SHACL counts <em>distinct</em> values.</li>
+  <li><code>WHERE NOT (… &gt;= 1)</code> keeps only focus nodes that fail.</li>
+  <li><code>RETURN</code> builds the report row: rule, shape, path, constraint, severity, the focus node identified by <code>--node-key</code> and element id, and a message.</li>
+</ul>
+<p>Next to it is a <code>#summary</code> query with the same <code>WHERE</code>. It returns one row with <code>violationCount</code> and a sample of focus nodes, even when the count is zero.</p>
+
+<h2>Run it</h2>
+<p>Against a database, <code>validate</code> compiles and runs in one step:</p>
+<pre><code>shacl2cypher validate doc/examples/book/02-first-shape.ttl --connect bolt://localhost:7687 --node-key id</code></pre>
+<p>Each failing node becomes a line under its rule, such as <code>- Person id=p3: ex:PersonShape violates sh:minCount on ex:name</code>. With <code>--format json</code>, the same violation is a structured row:</p>
+<pre><code>{
+  "ruleId": "PersonShape.name.minCount",
+  "shape": "ex:PersonShape",
+  "path": "ex:name",
+  "constraint": "sh:minCount",
+  "severity": "Violation",
+  "focus": { "label": "Person", "key": "id", "keyValue": "p3", "elementId": "4:…:12" },
+  "value": null,
+  "message": "ex:PersonShape violates sh:minCount on ex:name",
+  "details": []
+}</code></pre>
+
+<div class="try">
+  <div class="k">Try it</div>
+  <p>Add <code>sh:minLength 2</code> to the property shape and compile again. You get a fourth rule, <code>PersonShape.name.minLength</code>, and a fourth query.</p>
+</div>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li>Turtle is statements, plus prefixes, <code>a</code>, <code>;</code>, <code>,</code>, <code>[ ]</code> and <code>( )</code>.</li>
+    <li>A node shape has a target and property shapes. A property shape has a path and constraints.</li>
+    <li>Each constraint compiles into one named rule with a detail query and a summary query.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="01-why.html"><div class="dir">← Previous</div><div class="t">1. Why shapes for a property graph</div></a>
+  <a class="next-ch" href="03-targets.html"><div class="dir">Next →</div><div class="t">3. Targets and focus nodes</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

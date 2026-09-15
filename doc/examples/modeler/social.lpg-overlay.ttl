@@ -1,0 +1,21 @@
+@prefix sh:     <http://www.w3.org/ns/shacl#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix s2c:    <https://w3id.org/shacl2cypher#> .
+@prefix social: <https://example.org/vocab/social#> .
+
+# The generated KnowsShape and OwnsShape describe RDF reification classes.
+# In the property graph those are relationships, so switch the RDF form off...
+social:KnowsShape sh:deactivated true .
+social:OwnsShape  sh:deactivated true .
+
+# ...and check the relationship properties where they actually live.
+social:KnowsEdgeShape a sh:NodeShape ;
+    s2c:targetRelationship "KNOWS" ;
+    sh:property [ sh:path social:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .
+
+social:OwnsEdgeShape a sh:NodeShape ;
+    s2c:targetRelationship "OWNS" ;
+    sh:property [ sh:path social:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .
+
+# Rows name each node by its model key instead of --node-key.
+social:CarShape s2c:key "vin" .

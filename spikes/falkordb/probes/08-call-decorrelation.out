@@ -1,0 +1,213 @@
+
+==== # OPTIONAL MATCH rows as anchors
+
+>> MATCH (n:Person) OPTIONAL MATCH (n)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 WITH n, y, size([(y)-[:KNOWS]->(z) | 1]) > 0 AS c RETURN n.id, y.id, c ORDER BY n.id, y.id
+n.id
+y.id
+c
+a
+b
+true
+a
+b
+true
+a
+c
+false
+b
+c
+false
+c
+
+false
+
+>> MATCH (n:Person) OPTIONAL MATCH (n)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 WITH n, y, size([(y)-[:KNOWS]->(z) | 1]) > 0 AS c WITH n, collect(CASE WHEN y IS NULL THEN null ELSE c END) AS cs RETURN n.id, all(x IN cs WHERE x) AS allOut ORDER BY n.id
+n.id
+allOut
+a
+false
+b
+false
+c
+true
+
+==== # single-level CALL with aggregation
+
+>> MATCH (n:Person) CALL { WITH n OPTIONAL MATCH (n)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 RETURN count(DISTINCT y) AS k } RETURN n.id, k ORDER BY n.id
+n.id
+k
+a
+2
+b
+1
+c
+0
+
+>> MATCH (n:Person) CALL { WITH n OPTIONAL MATCH (n)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 WITH y, size([(y)-[:KNOWS]->(z) | 1]) > 0 AS c RETURN all(x IN collect(CASE WHEN y IS NULL THEN null ELSE c END) WHERE x) AS allOut } RETURN n.id, allOut ORDER BY n.id
+n.id
+allOut
+a
+false
+b
+false
+c
+true
+
+==== # nested CALL three levels deep
+
+>> MATCH (n:Person) CALL { WITH n OPTIONAL MATCH (n)-[r1:KNOWS]->(y1) WHERE id(r1) >= 0 CALL { WITH y1 OPTIONAL MATCH (y1)-[r2:KNOWS]->(y2) WHERE id(r2) >= 0 WITH y2, size([(y2)-[r3:WORKS_FOR]->(y3) WHERE y3.id = 'x' | 1]) > 0 AS c3 RETURN any(x IN collect(CASE WHEN y2 IS NULL THEN null ELSE c3 END) WHERE x) AS c2 } RETURN any(x IN collect(CASE WHEN y1 IS NULL THEN null ELSE c2 END) WHERE x) AS deep } RETURN n.id, deep ORDER BY n.id
+n.id
+deep
+a
+true
+b
+false
+c
+false
+
+>> MATCH (n:Person) CALL { WITH n OPTIONAL MATCH (n)-[r1:KNOWS]->(y1) WHERE id(r1) >= 0 CALL { WITH y1 OPTIONAL MATCH (y1)-[r2:KNOWS]->(y2) WHERE id(r2) >= 0 CALL { WITH y2 OPTIONAL MATCH (y2)-[r3:WORKS_FOR]->(y3) WHERE id(r3) >= 0 RETURN any(x IN collect(CASE WHEN y3 IS NULL THEN null ELSE y3.id = 'x' END) WHERE x) AS c3 } RETURN any(x IN collect(CASE WHEN y2 IS NULL THEN null ELSE c3 END) WHERE x) AS c2 } RETURN any(x IN collect(CASE WHEN y1 IS NULL THEN null ELSE c2 END) WHERE x) AS deep } RETURN n.id, deep ORDER BY n.id
+n.id
+deep
+a
+true
+b
+false
+c
+false
+
+==== # conditions as columns combined in the outer WHERE
+
+>> MATCH (v0:Person) CALL { WITH v0 OPTIONAL MATCH (v0)-[r1:KNOWS]->(y1) WHERE id(r1) >= 0 RETURN count(DISTINCT y1) AS k1 } CALL { WITH v0 OPTIONAL MATCH (v0)<-[r2:KNOWS]-(y2) WHERE id(r2) >= 0 RETURN count(DISTINCT y2) AS k2 } WITH v0, k1, k2 WHERE NOT (k1 >= 1 AND k2 >= 1) RETURN v0.id ORDER BY v0.id
+v0.id
+a
+c
+
+>> MATCH (v0:Person) CALL { WITH v0 OPTIONAL MATCH (v0)-[r1:KNOWS]->(y1) WHERE id(r1) >= 0 RETURN count(DISTINCT y1) AS k1 } WITH v0, k1 WHERE NOT (k1 <= 1) RETURN count(v0) AS violations, collect({keyValue: toStringOrNull(v0.id), elementId: toString(id(v0))})[0..5] AS sample
+violations
+sample
+1
+[{keyValue: a, elementId: 0}]
+
+==== # per-value rows over a relationship path with a nested test
+
+>> MATCH (v0:Person) MATCH (v0)-[r0:KNOWS]->(v1) WHERE id(r0) >= 0 CALL { WITH v1 OPTIONAL MATCH (v1)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 RETURN count(DISTINCT y) AS k } WITH v0, v1, k WHERE NOT (k > 0) RETURN v0.id, v1.id ORDER BY v0.id, v1.id
+v0.id
+v1.id
+a
+c
+b
+c
+
+==== # alternative routes inside CALL, then a nested test per value
+
+>> MATCH (v0:Person) CALL { WITH v0 MATCH (v0)-[r1:KNOWS]->(v1) WHERE id(r1) >= 0 RETURN v1 UNION WITH v0 MATCH (v0)<-[r2:KNOWS]-(v1) WHERE id(r2) >= 0 RETURN v1 } CALL { WITH v1 OPTIONAL MATCH (v1)-[r3:WORKS_FOR]->(y) WHERE id(r3) >= 0 RETURN count(DISTINCT y) AS k } WITH v0, v1, k WHERE NOT (k >= 1) RETURN v0.id, v1.id ORDER BY v0.id, v1.id
+v0.id
+v1.id
+a
+b
+b
+a
+c
+a
+c
+b
+
+>> MATCH (v0:Person) CALL { WITH v0 CALL { WITH v0 OPTIONAL MATCH (v0)-[r1:KNOWS]->(v1) WHERE id(r1) >= 0 RETURN v1 UNION WITH v0 OPTIONAL MATCH (v0)<-[r2:KNOWS]-(v1) WHERE id(r2) >= 0 RETURN v1 } RETURN count(DISTINCT v1) AS k } RETURN v0.id, k ORDER BY v0.id
+v0.id
+k
+a
+2
+b
+2
+c
+2
+
+>> MATCH (v0:Person) CALL { WITH v0 CALL { WITH v0 OPTIONAL MATCH (v0)-[r1:KNOWS]->(v1) WHERE id(r1) >= 0 RETURN v1 UNION WITH v0 OPTIONAL MATCH (v0)<-[r2:KNOWS]-(v1) WHERE id(r2) >= 0 RETURN v1 } WITH v1, size([(v1)-[:WORKS_FOR]->() | 1]) > 0 AS c RETURN any(x IN collect(CASE WHEN v1 IS NULL THEN null ELSE c END) WHERE x) AS anyWorks } RETURN v0.id, anyWorks ORDER BY v0.id
+v0.id
+anyWorks
+a
+true
+b
+true
+c
+true
+
+==== # variable-length routes in CALL with path variables (distinct targets within 1..2 hops: a {b, c} = 2, b {c} = 1, c 0)
+
+>> MATCH (v0:Person) CALL { WITH v0 OPTIONAL MATCH p1 = (v0)-[:KNOWS*1..2]->(y) RETURN count(DISTINCT y) AS k, count(p1) AS paths } RETURN v0.id, k, paths ORDER BY v0.id
+v0.id
+k
+paths
+a
+2
+5
+b
+1
+1
+c
+0
+0
+
+>> MATCH (v0:Person) CALL { WITH v0 OPTIONAL MATCH p1 = (v0)-[:KNOWS*0..2]->(y) RETURN count(DISTINCT y) AS k } RETURN v0.id, k ORDER BY v0.id
+v0.id
+k
+a
+3
+b
+2
+c
+1
+
+==== # property values of neighbours in CALL (value sets of a sequence path)
+
+>> MATCH (v0:Person) CALL { WITH v0 OPTIONAL MATCH (v0)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 UNWIND CASE typeOf(y.name) WHEN 'Null' THEN [] WHEN 'List' THEN y.name ELSE [y.name] END AS v RETURN collect(DISTINCT v) AS names } RETURN v0.id, names ORDER BY v0.id
+v0.id
+names
+a
+[Cy]
+b
+[Cy]
+c
+[]
+
+>> MATCH (v0:Person) OPTIONAL MATCH (v0)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 UNWIND CASE typeOf(y.name) WHEN 'Null' THEN [] WHEN 'List' THEN y.name ELSE [y.name] END AS v1 WITH v0, v1 WHERE v1 IS NOT NULL AND NOT (CASE WHEN typeOf(v1) = 'String' THEN size(toStringOrNull(v1)) >= 3 ELSE false END) RETURN v0.id, v1 ORDER BY v0.id
+v0.id
+v1
+a
+Cy
+b
+Cy
+
+==== # CALL returning zero rows must not drop the outer row
+
+>> MATCH (v0:Person) CALL { WITH v0 MATCH (v0)-[r1:WORKS_FOR]->(y) WHERE id(r1) >= 0 RETURN count(y) AS k } RETURN v0.id, k ORDER BY v0.id
+v0.id
+k
+a
+0
+b
+0
+c
+1
+
+>> MATCH (v0:Person) CALL { WITH v0 MATCH (v0)-[r1:WORKS_FOR]->(y) WHERE id(r1) >= 0 RETURN y } RETURN v0.id, y.id ORDER BY v0.id
+v0.id
+y.id
+c
+x
+
+==== # pair constraints over relationship sets as CALL columns (sh:equals KNOWS vs incoming KNOWS)
+
+>> MATCH (v0:Person) CALL { WITH v0 OPTIONAL MATCH (v0)-[r1:KNOWS]->(y) WHERE id(r1) >= 0 RETURN collect(DISTINCT id(y)) AS outs } CALL { WITH v0 OPTIONAL MATCH (v0)<-[r2:KNOWS]-(y) WHERE id(r2) >= 0 RETURN collect(DISTINCT id(y)) AS ins } WITH v0, outs, ins WHERE NOT (all(i IN outs WHERE i IN ins) AND all(i IN ins WHERE i IN outs)) RETURN v0.id, outs, ins ORDER BY v0.id
+v0.id
+outs
+ins
+a
+[1, 2]
+[]
+b
+[2]
+[0]
+c
+[]
+[0, 1]

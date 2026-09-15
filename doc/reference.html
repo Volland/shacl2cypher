@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — shacl2cypher</title>
+<meta name="description" content="shacl2cypher reference: CLI commands and options, the s2c annotation vocabulary, supported SHACL, datatypes, manifest fields, result rows, report formats and exit codes.">
+<link rel="icon" href="assets/icon.svg">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Get started</a>
+      <a href="guides/shacl.html">SHACL guide</a>
+      <a href="guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="book/index.html">Book</a>
+      <a href="reference.html" aria-current="page">Reference</a>
+      <a href="articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <span class="eyebrow">Reference</span>
+  <h1>Every option, field and exit code</h1>
+  <p class="lede">For version 0.2.0. Run <code>shacl2cypher &lt;command&gt; --help</code> for the options of the binary you have installed.</p>
+  <p><a href="#compile">compile</a> · <a href="#validate">validate</a> · <a href="#schema-dump">schema dump</a> · <a href="#annotations">s2c: annotations</a> · <a href="#supported">supported SHACL</a> · <a href="#datatypes">datatypes</a> · <a href="#manifest">manifest</a> · <a href="#rows">rows</a> · <a href="#reports">reports</a> · <a href="#exit-codes">exit codes</a></p>
+</div>
+
+<section class="wrap narrow">
+
+  <h2 id="compile">compile</h2>
+  <p>Compile shapes files (Turtle <code>.ttl</code>, N-Triples <code>.nt</code>, TriG <code>.trig</code>) into <code>manifest.json</code> and <code>queries.cypher</code>.</p>
+<pre><code>shacl2cypher compile [OPTIONS] --dialect &lt;DIALECT&gt; &lt;SHAPES&gt;...</code></pre>
+  <dl class="args">
+    <dt>--dialect neo4j|ladybug</dt><dd>Target Cypher dialect. Required.</dd>
+    <dt>--schema &lt;FILE&gt;</dt><dd>Schema snapshot JSON. Required for <code>ladybug</code>. Optional for <code>neo4j</code>, where it adds evidence for resolution and diagnostics.</dd>
+    <dt>--ontology &lt;FILE&gt;</dt><dd>Repeatable. Files contributing <code>rdfs:subClassOf</code> statements for class expansion.</dd>
+    <dt>--node-key &lt;PROPERTY&gt;</dt><dd>Property identifying nodes in rows when a shape has no <code>s2c:key</code>. Also needed when IRI constants are compared with relationship values.</dd>
+    <dt>--neo4j-labels explicit|inherited</dt><dd><code>explicit</code> (default) matches every subclass label. <code>inherited</code> assumes nodes already carry their superclass labels.</dd>
+    <dt>--strict</dt><dd>Fail on any label, property or relationship type chosen by convention alone.</dd>
+    <dt>--lenient</dt><dd>Record unsupported features as <code>unsupported</code> rules instead of failing.</dd>
+    <dt>--verbose</dt><dd>Include all focus properties in detail rows.</dd>
+    <dt>--max-path-depth &lt;N&gt;</dt><dd>Upper bound for <code>sh:zeroOrMorePath</code>/<code>sh:oneOrMorePath</code>. Default 10; LadybugDB allows at most 30.</dd>
+    <dt>--allow-remote-imports</dt><dd>Fetch <code>owl:imports</code> of http(s) IRIs (30 s timeout, 16 MB cap).</dd>
+    <dt>--fail-on-schema-mismatch</dt><dd>Turn static schema diagnostics into one compile error.</dd>
+    <dt>-o, --output &lt;DIR&gt;</dt><dd>Output directory. Default: the working directory.</dd>
+  </dl>
+  <p>Compile errors print one <code>error:</code> line per problem with <code>file:line</code>, write no files and exit 1. Static diagnostics print as <code>warning: file:line: code: message</code>.</p>
+
+  <h2 id="validate">validate</h2>
+  <p>Validate a database against shapes files, compiled in memory for the connected dialect, or against a compiled manifest.</p>
+<pre><code>shacl2cypher validate [OPTIONS] [SHAPES]...</code></pre>
+  <p>It accepts every <code>compile</code> option except <code>--dialect</code> and <code>-o</code>, plus:</p>
+  <dl class="args">
+    <dt>--manifest &lt;FILE&gt;</dt><dd>Run a manifest written by <code>compile</code>. A manifest for another dialect is rejected.</dd>
+    <dt>--connect &lt;URI&gt;</dt><dd>Neo4j Bolt URI, e.g. <code>bolt://localhost:7687</code>.</dd>
+    <dt>--user, --password, --database</dt><dd>Neo4j credentials (<code>NEO4J_USER</code>, <code>NEO4J_PASSWORD</code>) and database name.</dd>
+    <dt>--ladybug &lt;FILE&gt;</dt><dd>LadybugDB database file, opened read-only. A missing file is an error.</dd>
+    <dt>--format table|json|junit|sarif</dt><dd>Report format. Default <code>table</code>.</dd>
+    <dt>-o, --output &lt;FILE&gt;</dt><dd>Write the report to a file instead of stdout.</dd>
+    <dt>--limit &lt;N&gt;</dt><dd>Violations listed per rule. Default 100; <code>0</code> lists all.</dd>
+    <dt>--sample-size &lt;N&gt;</dt><dd>Focus samples per summary row. Default 5.</dd>
+    <dt>--timeout &lt;SECONDS&gt;</dt><dd>Per-query timeout. A timed-out rule is reported and the other rules still run.</dd>
+    <dt>--fail-on violation|warning|info</dt><dd>Lowest severity whose violations fail the run. Default <code>violation</code>.</dd>
+  </dl>
+  <p>Every rule with queries runs its summary query. Rules with violations then run their detail query.</p>
+
+  <h2 id="schema-dump">schema dump</h2>
+<pre><code>shacl2cypher schema dump (--connect &lt;URI&gt; | --ladybug &lt;FILE&gt;) [-o schema.json]</code></pre>
+  <p>Writes a snapshot that <code>compile --schema</code> accepts unchanged:</p>
+<pre><code>{
+  "nodeTypes": [{ "name": "Person", "properties": [{ "name": "email", "type": "STRING" }] }],
+  "relTypes":  [{ "name": "KNOWS", "endpoints": [{ "from": "Person", "to": "Person" }],
+                  "properties": [{ "name": "since", "type": "DATE" }] }]
+}</code></pre>
+  <p>Types: <code>STRING</code>, <code>INT64</code>/<code>INT32</code>/<code>INT16</code>/<code>INT8</code>, <code>UINT64</code>…<code>UINT8</code>, <code>DOUBLE</code>, <code>FLOAT</code>, <code>DECIMAL</code>, <code>BOOLEAN</code>, <code>DATE</code>, <code>LOCAL_DATETIME</code>, <code>ZONED_DATETIME</code>, <code>LOCAL_TIME</code>, <code>ZONED_TIME</code>, <code>DURATION</code>, <code>POINT</code>, <code>BLOB</code>, <code>ANY</code> and <code>LIST&lt;T&gt;</code>. On Neo4j the snapshot reflects observed data: mixed types become <code>ANY</code>, and endpoints come from a scan of every relationship.</p>
+
+  <h2 id="annotations">The s2c: annotation vocabulary</h2>
+  <p>Declare <code>@prefix s2c: &lt;https://w3id.org/shacl2cypher#&gt; .</code> Other SHACL engines ignore these triples. Parsing is strict: an unknown <code>s2c:</code> predicate, an invalid value or a wrong subject is a compile error.</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Annotation</th><th>Subject</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>s2c:label</code></td><td>class IRI or node shape</td><td>label / node table name</td></tr>
+      <tr><td><code>s2c:property</code></td><td>predicate or property shape</td><td>property key</td></tr>
+      <tr><td><code>s2c:relationship</code></td><td>predicate or property shape</td><td>relationship type / rel table</td></tr>
+      <tr><td><code>s2c:direction</code></td><td>predicate or property shape</td><td><code>"out"</code> or <code>"in"</code></td></tr>
+      <tr><td><code>s2c:key</code></td><td>node shape</td><td>identifying property of the focus label</td></tr>
+      <tr><td><code>s2c:datatype</code></td><td>predicate or property shape</td><td>exact native type, e.g. <code>"LOCAL_DATETIME"</code></td></tr>
+      <tr><td><code>s2c:collection</code></td><td>predicate or property shape</td><td><code>"list"</code> (one value per element) or <code>"scalar"</code></td></tr>
+      <tr><td><code>s2c:iriAsString</code></td><td>property shape</td><td>IRI constants as <code>"local"</code> names (default) or <code>"full"</code> IRIs</td></tr>
+      <tr><td><code>s2c:targetRelationship</code></td><td>node shape</td><td>every relationship of this type is a focus</td></tr>
+      <tr><td><code>s2c:name</code></td><td>any shape</td><td>explicit rule name</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="supported">Supported SHACL</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Group</th><th>Features</th></tr></thead>
+    <tbody>
+      <tr><td>Targets</td><td><code>sh:targetClass</code>, implicit class targets, <code>sh:targetSubjectsOf</code>, <code>sh:targetObjectsOf</code>, <code>s2c:targetRelationship</code></td></tr>
+      <tr><td>Cardinality</td><td><code>sh:minCount</code>, <code>sh:maxCount</code></td></tr>
+      <tr><td>Value type</td><td><code>sh:datatype</code>, <code>sh:nodeKind</code>, <code>sh:class</code></td></tr>
+      <tr><td>Ranges</td><td><code>sh:minInclusive</code>, <code>sh:maxInclusive</code>, <code>sh:minExclusive</code>, <code>sh:maxExclusive</code></td></tr>
+      <tr><td>Strings</td><td><code>sh:minLength</code>, <code>sh:maxLength</code>, <code>sh:pattern</code> with <code>sh:flags</code> (<code>i</code>, <code>s</code>, <code>m</code>, <code>x</code>, <code>q</code>)</td></tr>
+      <tr><td>Other</td><td><code>sh:in</code>, <code>sh:hasValue</code>, <code>sh:equals</code>, <code>sh:disjoint</code>, <code>sh:lessThan</code>, <code>sh:lessThanOrEquals</code>, <code>sh:closed</code>, <code>sh:ignoredProperties</code></td></tr>
+      <tr><td>Metadata</td><td><code>sh:severity</code>, <code>sh:message</code> (with <code>{$this}</code>/<code>{?value}</code>), <code>sh:deactivated</code></td></tr>
+      <tr><td>Logical</td><td><code>sh:node</code>, <code>sh:not</code>, <code>sh:and</code>, <code>sh:or</code>, <code>sh:xone</code></td></tr>
+      <tr><td>Qualified</td><td><code>sh:qualifiedValueShape</code>, <code>sh:qualifiedMinCount</code>, <code>sh:qualifiedMaxCount</code>, <code>sh:qualifiedValueShapesDisjoint</code></td></tr>
+      <tr><td>Paths</td><td>sequence, <code>sh:inversePath</code>, <code>sh:alternativePath</code>, <code>sh:zeroOrMorePath</code>, <code>sh:oneOrMorePath</code>, <code>sh:zeroOrOnePath</code></td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Rejected at compile time</strong> (or <code>unsupported</code> rules with <code>--lenient</code>): <code>sh:targetNode</code>, SHACL-SPARQL, <code>sh:languageIn</code>, <code>sh:uniqueLang</code>, <code>rdf:langString</code>, and recursive shapes. Property shapes nested inside property shapes are not supported yet.</p>
+
+  <h2 id="datatypes">Datatypes</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>XSD</th><th>Neo4j 5</th><th>LadybugDB</th></tr></thead>
+    <tbody>
+      <tr><td><code>xsd:string</code>, <code>xsd:anyURI</code></td><td><code>IS :: STRING</code></td><td><code>STRING</code></td></tr>
+      <tr><td><code>xsd:integer</code>, <code>long</code>, <code>int</code>, <code>short</code>, <code>byte</code></td><td><code>IS :: INTEGER</code> plus a range check for narrow types</td><td><code>INT64</code>/<code>INT32</code>/<code>INT16</code>/<code>INT8</code></td></tr>
+      <tr><td><code>xsd:decimal</code>, <code>double</code>, <code>float</code></td><td><code>IS :: FLOAT</code> (decimal is lossy)</td><td><code>DECIMAL</code>/<code>DOUBLE</code>/<code>FLOAT</code></td></tr>
+      <tr><td><code>xsd:boolean</code></td><td><code>IS :: BOOLEAN</code></td><td><code>BOOL</code></td></tr>
+      <tr><td><code>xsd:date</code></td><td><code>IS :: DATE</code></td><td><code>DATE</code></td></tr>
+      <tr><td><code>xsd:dateTime</code></td><td><code>ZONED DATETIME</code> or <code>LOCAL DATETIME</code></td><td><code>TIMESTAMP</code></td></tr>
+      <tr><td><code>xsd:duration</code></td><td><code>IS :: DURATION</code></td><td><code>INTERVAL</code></td></tr>
+      <tr><td><code>rdf:langString</code></td><td>compile error</td><td>compile error</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="manifest">Manifest</h2>
+  <p>Top-level fields: <code>schemaVersion</code>, <code>compilerVersion</code>, <code>dialect</code>, <code>inputs</code> (<code>{path, role, sha256}</code>), <code>schemaSnapshotHash</code>, <code>options</code>, <code>rules</code>, <code>staticDiagnostics</code>, <code>recommendedIndexes</code>.</p>
+  <p>Each rule: <code>name</code>, <code>ruleId</code>, <code>fingerprint</code>, <code>shape</code>, <code>path</code>, <code>constraint</code>, <code>severity</code>, <code>status</code>, <code>costClass</code>, <code>source</code>, <code>statusReason</code>, <code>pathDepthCap</code>, <code>message</code> and <code>queries</code> (<code>detail</code>, <code>summary</code>, or null).</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>compiled</code></td><td>Has queries.</td></tr>
+      <tr><td><code>guaranteed-by-schema</code></td><td>The enforced schema (LadybugDB) already guarantees it; no query.</td></tr>
+      <tr><td><code>schema-mismatch</code></td><td>The enforced schema contradicts it; a static diagnostic explains why.</td></tr>
+      <tr><td><code>deactivated</code></td><td><code>sh:deactivated true</code>.</td></tr>
+      <tr><td><code>unsupported</code></td><td>A rejected feature, recorded under <code>--lenient</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Cost classes, most to least expensive: <code>unbounded-path</code>, <code>quadratic</code> (pair constraints over relationship paths), <code>scan+expand</code> (any traversal), <code>scan</code>.</p>
+  <p>Rule ids are structural, e.g. <code>ex:PersonShape/ex:address/sh:or[0]/ex:street/sh:minCount</code>. Names use local names (<code>PersonShape.name.minCount</code>). On a collision, a 6-hex content hash is appended.</p>
+
+  <h2 id="rows">Result rows</h2>
+  <p><strong>Detail rows</strong> (one per violation, capped by <code>$limit</code>): <code>ruleId</code>, <code>shape</code>, <code>path</code>, <code>constraint</code>, <code>severity</code>, <code>focus</code>, <code>value</code>, <code>message</code>, <code>details</code>.</p>
+  <ul class="plain">
+    <li>Node focus: <code>{label, key, keyValue, elementId}</code>. Relationship focus: <code>{type, startKey, endKey, elementId}</code>.</li>
+    <li><code>details</code> lists the inner rule ids that failed for nested shapes, e.g. <code>["ex:AddressShape/ex:zip/sh:pattern"]</code>.</li>
+  </ul>
+  <p><strong>Summary rows</strong> (exactly one per rule, even with zero violations): <code>ruleId</code>, <code>severity</code>, <code>violationCount</code>, <code>sample</code>.</p>
+
+  <h2 id="reports">Reports</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Format</th><th>Content</th></tr></thead>
+    <tbody>
+      <tr><td><code>table</code></td><td>status, severity, count and time per rule, up to 10 violations each, then totals</td></tr>
+      <tr><td><code>json</code></td><td>the full report: <code>conforms</code>, <code>complete</code>, a summary, and every rule with <code>durationMs</code> and detail rows</td></tr>
+      <tr><td><code>junit</code></td><td>one test case per rule; violations are failures, timeouts and query errors are errors</td></tr>
+      <tr><td><code>sarif</code></td><td>SARIF 2.1.0, one result per violation located at the constraint's shapes file and line</td></tr>
+    </tbody>
+  </table></div>
+  <p>Rule statuses in a report: <code>passed</code>, <code>failed</code>, <code>timeout</code>, <code>error</code>, <code>skipped</code> (deactivated, unsupported, schema-mismatch), <code>guaranteed-by-schema</code>.</p>
+
+  <h2 id="exit-codes">Exit codes</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td>No rule at or above <code>--fail-on</code> has violations, and every query completed.</td></tr>
+      <tr><td><code>1</code></td><td>A rule at or above <code>--fail-on</code> has violations. For <code>compile</code>: compile errors.</td></tr>
+      <tr><td><code>2</code></td><td>Usage or setup error: bad arguments, compile errors during validate, unreachable database, or no backend compiled in.</td></tr>
+      <tr><td><code>3</code></td><td>Nothing failed, but a query timed out or errored, so the result is incomplete.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

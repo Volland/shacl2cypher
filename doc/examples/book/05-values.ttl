@@ -1,0 +1,41 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:  <http://example.org/hr#> .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [
+        sh:path ex:name ;
+        sh:datatype xsd:string ;
+        sh:minLength 2 ;
+        sh:maxLength 80 ;
+    ] ;
+    sh:property [
+        sh:path ex:age ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 130 ;
+    ] ;
+    sh:property [
+        sh:path ex:email ;
+        sh:pattern "^[^@\\s]+@[^@\\s]+$" ;
+    ] ;
+    sh:property [
+        sh:path ex:code ;
+        sh:pattern "^emp-[0-9]{4}$" ;
+        sh:flags "i" ;
+    ] ;
+    sh:property [
+        sh:path ex:status ;
+        sh:in ( "active" "on-leave" "left" ) ;
+    ] ;
+    sh:property [
+        sh:path ex:hiredOn ;
+        sh:datatype xsd:date ;
+        sh:minInclusive "2000-01-01"^^xsd:date ;
+    ] .
+
+ex:CompanyShape a sh:NodeShape ;
+    sh:targetClass ex:Company ;
+    # Every company must list "EU" among its markets.
+    sh:property [ sh:path ex:markets ; sh:hasValue "EU" ] .

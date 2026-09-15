@@ -1,0 +1,36 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix ex:  <http://example.org/hr#> .
+
+# A reusable shape with no target: it only matters where another shape uses it.
+ex:AddressShape a sh:NodeShape ;
+    sh:property [ sh:path ex:street ; sh:minCount 1 ] ;
+    sh:property [ sh:path ex:zip ; sh:minCount 1 ; sh:pattern "^[0-9]{5}$" ] .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    # Every address a person lives at conforms to AddressShape.
+    sh:property [ sh:path ex:livesAt ; sh:node ex:AddressShape ] ;
+    # At least one way to reach them.
+    sh:or (
+        [ sh:path ex:email ; sh:minCount 1 ]
+        [ sh:path ex:phone ; sh:minCount 1 ]
+    ) ;
+    # A person is never also flagged as a bot.
+    sh:not [ sh:path ex:isBot ; sh:hasValue true ] .
+
+ex:TeamShape a sh:NodeShape ;
+    sh:targetClass ex:Team ;
+    # Exactly one of: an internal lead, or an external sponsor.
+    # (sh:nodeKind sh:IRI says the values are nodes, so the paths are relationships.)
+    sh:xone (
+        [ sh:path ex:lead ; sh:nodeKind sh:IRI ; sh:minCount 1 ]
+        [ sh:path ex:sponsor ; sh:nodeKind sh:IRI ; sh:minCount 1 ]
+    ) ;
+    # Among the members, at least one and at most two are :Manager nodes.
+    sh:property [
+        sh:path ex:member ;
+        sh:nodeKind sh:IRI ;
+        sh:qualifiedValueShape [ sh:class ex:Manager ] ;
+        sh:qualifiedMinCount 1 ;
+        sh:qualifiedMaxCount 2 ;
+    ] .

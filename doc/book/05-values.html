@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5. Constraining values — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 5: datatypes, numeric and date ranges, string lengths, regular expressions and allowed values in SHACL, and how they behave on a property graph.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>5. Constraining values</h1>
+  <p class="lede">Once you know how many values there are, the next question is what they may be: the right type, in range, the right shape of string, one of an allowed list.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html" aria-current="page">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<p>All examples are in <a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/05-values.ttl"><code>05-values.ttl</code></a>, which compiles to 12 rules.</p>
+
+<h2>Datatypes</h2>
+<pre><code>sh:property [ sh:path ex:age ; sh:datatype xsd:integer ] ;</code></pre>
+<p>SHACL uses XML Schema datatypes. shacl2cypher maps each one to the types your database actually stores:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Datatype</th><th>Neo4j</th><th>LadybugDB column</th></tr></thead>
+  <tbody>
+    <tr><td><code>xsd:string</code></td><td><code>STRING</code></td><td><code>STRING</code></td></tr>
+    <tr><td><code>xsd:integer</code></td><td><code>INTEGER</code></td><td>any integer type</td></tr>
+    <tr><td><code>xsd:int</code>, <code>xsd:short</code>, <code>xsd:byte</code></td><td><code>INTEGER</code> plus a range check</td><td><code>INT32</code>/<code>INT16</code>/<code>INT8</code></td></tr>
+    <tr><td><code>xsd:decimal</code>, <code>xsd:double</code></td><td><code>FLOAT</code></td><td><code>DECIMAL</code>/<code>DOUBLE</code>/<code>FLOAT</code></td></tr>
+    <tr><td><code>xsd:boolean</code></td><td><code>BOOLEAN</code></td><td><code>BOOL</code></td></tr>
+    <tr><td><code>xsd:date</code></td><td><code>DATE</code></td><td><code>DATE</code></td></tr>
+    <tr><td><code>xsd:dateTime</code></td><td><code>ZONED DATETIME</code> or <code>LOCAL DATETIME</code></td><td><code>TIMESTAMP</code></td></tr>
+    <tr><td><code>xsd:duration</code></td><td><code>DURATION</code></td><td><code>INTERVAL</code></td></tr>
+  </tbody>
+</table></div>
+<p>Need exactly one native type, such as only zoned date-times? Add <code>s2c:datatype "ZONED_DATETIME"</code> to the property shape.</p>
+<div class="note"><p><strong>On LadybugDB the schema often answers for you.</strong> If <code>age</code> is an <code>INT64</code> column, <code>sh:datatype xsd:integer</code> can never fail, so the rule is <code>guaranteed-by-schema</code> and runs no query. If <code>age</code> is a <code>STRING</code> column, the rule can never pass: that is reported at compile time as a schema mismatch.</p></div>
+
+<h2>Ranges</h2>
+<pre><code>sh:property [
+    sh:path ex:age ;
+    sh:datatype xsd:integer ;
+    sh:minInclusive 0 ;
+    sh:maxInclusive 130 ;
+] ;
+sh:property [
+    sh:path ex:hiredOn ;
+    sh:datatype xsd:date ;
+    sh:minInclusive "2000-01-01"^^xsd:date ;
+] .</code></pre>
+<p><code>sh:minInclusive</code>, <code>sh:maxInclusive</code>, <code>sh:minExclusive</code> and <code>sh:maxExclusive</code> compare each value with a typed constant. Dates compare with dates, numbers with numbers.</p>
+
+<h2>A wrong type is always a violation</h2>
+<p>What if <code>age</code> holds the string <code>"forty"</code>? In Cypher, <code>"forty" &gt;= 0</code> is <code>null</code>, and a naive <code>WHERE NOT (p.age &gt;= 0)</code> would silently skip the row. shacl2cypher never lets that happen. Every value test is wrapped so that "can't compare" counts as "fails", and the row is reported with <code>value: "forty"</code>. That is also what SHACL requires.</p>
+<p>The flip side: value constraints ignore <em>missing</em> values. A person with no <code>age</code> passes every rule above. If age is required, add <code>sh:minCount 1</code>.</p>
+
+<h2>String length</h2>
+<pre><code>sh:property [ sh:path ex:name ; sh:datatype xsd:string ; sh:minLength 2 ; sh:maxLength 80 ] ;</code></pre>
+<p>Lengths apply to strings, and to integers by their decimal digits. Any other value type fails a length constraint.</p>
+
+<h2>Patterns</h2>
+<pre><code>sh:property [ sh:path ex:email ; sh:pattern "^[^@\\s]+@[^@\\s]+$" ] ;
+sh:property [ sh:path ex:code  ; sh:pattern "^emp-[0-9]{4}$" ; sh:flags "i" ] ;</code></pre>
+<p>Three things to know about <code>sh:pattern</code>:</p>
+<ol>
+  <li><strong>It matches anywhere in the string</strong> unless you anchor it. <code>"[0-9]"</code> passes <code>"abc1"</code>. Use <code>^</code> and <code>$</code> for a whole-string match.</li>
+  <li><strong>Backslashes are doubled</strong> inside a Turtle string: <code>\\s</code> in the file is <code>\s</code> in the regex.</li>
+  <li><strong>Flags</strong>: <code>i</code> ignores case, <code>s</code> lets <code>.</code> match newlines, <code>m</code> makes <code>^</code>/<code>$</code> match at lines, <code>x</code> ignores whitespace in the pattern, and <code>q</code> treats the pattern as a literal string.</li>
+</ol>
+<p>Patterns are XSD regular expressions. shacl2cypher parses each one and rewrites it for the engine, for example wrapping it as <code>(?s:.*)(?:…)(?s:.*)</code> for Neo4j's anchored <code>=~</code>. An invalid pattern is a compile error at its line in your file. Back-references such as <code>(a)\1</code> work on Neo4j but are rejected for LadybugDB, whose regex engine can't evaluate them.</p>
+
+<h2>Allowed values</h2>
+<pre><code>sh:property [ sh:path ex:status ; sh:in ( "active" "on-leave" "left" ) ] ;</code></pre>
+<p>Every value must be one of the list. IRIs in the list, such as <code>( ex:Active ex:Left )</code>, compare by local name: <code>"Active"</code> and <code>"Left"</code>.</p>
+
+<h2>A required value</h2>
+<pre><code>ex:CompanyShape a sh:NodeShape ;
+    sh:targetClass ex:Company ;
+    sh:property [ sh:path ex:markets ; sh:hasValue "EU" ] .</code></pre>
+<p><code>sh:hasValue</code> means "one of the values is this". It is the only value constraint besides counts that fails on an empty set. A company with no <code>markets</code> violates it.</p>
+
+<h2>Per-value results</h2>
+<p>Value constraints report one row per bad value, so a list with two bad elements gives two rows, each with its <code>value</code>:</p>
+<pre><code>failed      Warning             1         3  PersonShape.name.pattern
+            - Person id=p1: ex:PersonShape violates sh:pattern on ex:name (value: "ann")</code></pre>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li><code>sh:datatype</code> maps XSD types onto native graph types; use <code>s2c:datatype</code> to demand an exact one.</li>
+    <li>A value of the wrong type fails every value test. A missing value passes them all.</li>
+    <li>Patterns match substrings unless anchored, and are validated at compile time.</li>
+    <li><code>sh:in</code> restricts values to a list; <code>sh:hasValue</code> requires one particular value.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="04-cardinality.html"><div class="dir">← Previous</div><div class="t">4. Property shapes and cardinality</div></a>
+  <a class="next-ch" href="06-relationships.html"><div class="dir">Next →</div><div class="t">6. Relationships and paths</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

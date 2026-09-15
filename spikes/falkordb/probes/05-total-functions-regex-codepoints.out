@@ -1,0 +1,434 @@
+
+==== # setup: a node-valued and map-like stored values are impossible, so add an edge for entity tests
+
+>> MATCH (a:V {id: 'i'}), (b:V {id: 's'}) CREATE (a)-[:R {w: [1, 2]}]->(b)
+Properties set: 1
+Relationships created: 1
+
+==== # toStringOrNull totality
+
+>> RETURN toStringOrNull([1, 2]), toStringOrNull({a: 1}), toStringOrNull(null), toStringOrNull(point({latitude: 1, longitude: 2})), toStringOrNull(duration('P1D'))
+toStringOrNull([1, 2])
+toStringOrNull({a: 1})
+toStringOrNull(null)
+toStringOrNull(point({latitude: 1, longitude: 2}))
+toStringOrNull(duration('P1D'))
+
+
+
+point({latitude: 1.000000, longitude: 2.000000})
+P1D
+
+>> MATCH (a:V {id: 'i'})-[r:R]->(b) RETURN toStringOrNull(a), toStringOrNull(r), toStringOrNull(r.w)
+toStringOrNull(a)
+toStringOrNull(r)
+toStringOrNull(r.w)
+
+
+
+
+>> MATCH (n:V) RETURN n.id, size(toStringOrNull(n.v)) ORDER BY n.id
+n.id
+size(toStringOrNull(n.v))
+b
+4
+d
+10
+f
+8
+i
+1
+l
+
+n
+
+s
+4
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'String' THEN size(toStringOrNull(n.v)) >= 3 ELSE false END ORDER BY n.id
+n.id
+CASE WHEN typeOf(n.v) = 'String' THEN size(toStringOrNull(n.v)) >= 3 ELSE false END
+b
+false
+d
+false
+f
+false
+i
+false
+l
+false
+n
+false
+s
+true
+
+>> MATCH (n:V) RETURN n.id, CASE typeOf(n.v) WHEN 'String' THEN size(toStringOrNull(n.v)) >= 3 WHEN 'Integer' THEN size(toStringOrNull(n.v)) >= 1 ELSE false END ORDER BY n.id
+n.id
+CASE typeOf(n.v) WHEN 'String' THEN size(toStringOrNull(n.v)) >= 3 WHEN 'Integer' THEN size(toStringOrNull(n.v)) >= 1 ELSE false END
+b
+false
+d
+false
+f
+false
+i
+true
+l
+false
+n
+false
+s
+true
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'String' THEN size(string.matchRegEx(toStringOrNull(n.v), 'b')) > 0 ELSE false END ORDER BY n.id
+n.id
+CASE WHEN typeOf(n.v) = 'String' THEN size(string.matchRegEx(toStringOrNull(n.v), 'b')) > 0 ELSE false END
+b
+false
+d
+false
+f
+false
+i
+false
+l
+false
+n
+false
+s
+true
+
+>> MATCH (n:V) RETURN n.id, [x IN CASE typeOf(n.v) WHEN 'Null' THEN [] WHEN 'List' THEN n.v ELSE [n.v] END WHERE NOT (CASE WHEN typeOf(x) = 'String' THEN size(toStringOrNull(x)) >= 2 ELSE false END)] ORDER BY n.id
+n.id
+[x IN CASE typeOf(n.v) WHEN 'Null' THEN [] WHEN 'List' THEN n.v ELSE [n.v] END WHERE NOT (CASE WHEN typeOf(x) = 'String' THEN size(toStringOrNull(x)) >= 2 ELSE false END)]
+b
+[true]
+d
+[2020-01-01]
+f
+[2.500000]
+i
+[5]
+l
+[c]
+n
+[]
+s
+[]
+
+>> MATCH (n:V) RETURN n.id, all(x IN CASE typeOf(n.v) WHEN 'Null' THEN [] WHEN 'List' THEN n.v ELSE [n.v] END WHERE CASE WHEN typeOf(x) = 'String' THEN size(string.matchRegEx(toStringOrNull(x), '^a')) > 0 ELSE false END) ORDER BY n.id
+n.id
+all(x IN CASE typeOf(n.v) WHEN 'Null' THEN [] WHEN 'List' THEN n.v ELSE [n.v] END WHERE CASE WHEN typeOf(x) = 'String' THEN size(string.matchRegEx(toStringOrNull(x), '^a')) > 0 ELSE false END)
+b
+false
+d
+false
+f
+false
+i
+false
+l
+false
+n
+true
+s
+true
+
+>> MATCH (n:V) WITH n UNWIND CASE typeOf(n.v) WHEN 'Null' THEN [] WHEN 'List' THEN n.v ELSE [n.v] END AS v1 WITH n, v1 WHERE v1 IS NOT NULL AND NOT (CASE WHEN typeOf(v1) = 'String' THEN size(toStringOrNull(v1)) >= 2 ELSE false END) RETURN n.id, v1 ORDER BY n.id
+n.id
+v1
+b
+true
+d
+2020-01-01
+f
+2.5
+i
+5
+l
+c
+
+==== # CASE branch evaluation
+
+>> RETURN CASE WHEN false THEN 1 / 0 ELSE 1 END
+Division by zero
+
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'List' THEN n.v[0] ELSE null END ORDER BY n.id
+Type mismatch: expected Map, Node, Edge, List, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'String' THEN toLower(n.v) ELSE null END ORDER BY n.id
+Type mismatch: expected String or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'String' THEN date(n.v) ELSE null END ORDER BY n.id
+Type mismatch: expected Map, String, or Null but was Integer
+
+
+==== # WHERE filter short-circuiting shapes
+
+>> MATCH (n:V) WHERE NOT (typeOf(n.v) = 'String' AND size(n.v) > 3) RETURN n.id ORDER BY n.id
+n.id
+b
+d
+f
+i
+l
+n
+
+>> MATCH (n:V) WHERE typeOf(n.v) <> 'String' OR size(n.v) <= 3 RETURN n.id ORDER BY n.id
+n.id
+b
+d
+f
+i
+l
+n
+
+>> MATCH (n:V) WHERE CASE WHEN typeOf(n.v) = 'String' THEN size(n.v) > 3 ELSE false END RETURN n.id ORDER BY n.id
+Type mismatch: expected List, String, or Null but was Integer
+
+
+==== # other functions over mixed values
+
+>> MATCH (n:V) RETURN n.id, keys(n.v) ORDER BY n.id
+Type mismatch: expected Map, Node, Edge, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, n.v.x ORDER BY n.id
+Type mismatch: expected Map, Node, Edge, Datetime, Date, Time, Duration, Null, or Point but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, n.v[0] ORDER BY n.id
+Type mismatch: expected Map, Node, Edge, List, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, toInteger(n.v) ORDER BY n.id
+Type mismatch: expected String, Boolean, Integer, Float, or Null but was List
+
+
+>> MATCH (n:V) RETURN n.id, toIntegerOrNull(n.v), toFloatOrNull(n.v), toBooleanOrNull(n.v) ORDER BY n.id
+n.id
+toIntegerOrNull(n.v)
+toFloatOrNull(n.v)
+toBooleanOrNull(n.v)
+b
+1
+
+true
+d
+
+
+
+f
+2
+2.5
+
+i
+5
+5
+true
+l
+
+
+
+n
+
+
+
+s
+
+
+
+
+>> MATCH (n:V) RETURN n.id, replace(toStringOrNull(n.v), 'a', 'A') ORDER BY n.id
+n.id
+replace(toStringOrNull(n.v), 'a', 'A')
+b
+true
+d
+2020-01-01
+f
+2.500000
+i
+5
+l
+
+n
+
+s
+Abcd
+
+>> MATCH (n:V) RETURN n.id, n.v IN ['abcd', 5], n.v = date('2020-01-01'), n.v < date('2021-01-01') ORDER BY n.id
+n.id
+n.v IN ['abcd', 5]
+n.v = date('2020-01-01')
+n.v < date('2021-01-01')
+b
+false
+false
+
+d
+false
+true
+true
+f
+false
+false
+
+i
+true
+false
+
+l
+false
+false
+
+n
+
+
+
+s
+true
+false
+
+
+>> MATCH (n:V) RETURN n.id, labels(n.v) ORDER BY n.id
+Type mismatch: expected Node or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, n.v:Foo ORDER BY n.id
+Type mismatch: expected Node or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, id(n.v) ORDER BY n.id
+Type mismatch: expected Node, Edge, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, typeOf(n.v) IN ['String'] AND n.v STARTS WITH 'a' ORDER BY n.id
+Type mismatch: expected String or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, coalesce(n.v STARTS WITH 'a', false) ORDER BY n.id
+Type mismatch: expected String or Null but was Integer
+
+
+==== # regex code points replacing \x{...}
+
+>> RETURN string.matchRegEx('A', '\\u0041'), string.matchRegEx('é', '\\u00e9'), string.matchRegEx('é', '\\u00E9')
+string.matchRegEx('A', '\\u0041')
+string.matchRegEx('é', '\\u00e9')
+string.matchRegEx('é', '\\u00E9')
+[[A]]
+[[é]]
+[[é]]
+
+>> RETURN string.matchRegEx('M', '[\\u0041-\\u005A]'), string.matchRegEx('m', '[\\u0041-\\u005A]')
+string.matchRegEx('M', '[\\u0041-\\u005A]')
+string.matchRegEx('m', '[\\u0041-\\u005A]')
+[[M]]
+[]
+
+>> RETURN string.matchRegEx('😀', '\\uD83D\\uDE00'), string.matchRegEx('😀', '[😀-😂]'), string.matchRegEx('😁', '[😀-😂]'), string.matchRegEx('😃', '[😀-😂]')
+string.matchRegEx('😀', '\\uD83D\\uDE00')
+string.matchRegEx('😀', '[😀-😂]')
+string.matchRegEx('😁', '[😀-😂]')
+string.matchRegEx('😃', '[😀-😂]')
+[]
+[[😀]]
+[[😁]]
+[]
+
+>> RETURN string.matchRegEx('A', '\\x{0041}'), string.matchRegEx('A', '\\101'), string.matchRegEx('A', '\\o{101}')
+string.matchRegEx('A', '\\x{0041}')
+string.matchRegEx('A', '\\101')
+string.matchRegEx('A', '\\o{101}')
+[]
+[[A]]
+[]
+
+>> RETURN string.matchRegEx('&', '[\\&\\~]'), string.matchRegEx('~', '[\\&\\~]'), string.matchRegEx('-', '[a\\-z]'), string.matchRegEx('[', '[\\[]')
+string.matchRegEx('&', '[\\&\\~]')
+string.matchRegEx('~', '[\\&\\~]')
+string.matchRegEx('-', '[a\\-z]')
+string.matchRegEx('[', '[\\[]')
+[[&]]
+[[~]]
+[[-]]
+[[[]]
+
+>> RETURN string.matchRegEx('a.b*', '\\Qa.b*\\E'), string.matchRegEx('axbb', '\\Qa.b*\\E')
+string.matchRegEx('a.b*', '\\Qa.b*\\E')
+string.matchRegEx('axbb', '\\Qa.b*\\E')
+[[a.b*]]
+[]
+
+>> RETURN string.matchRegEx(' ', '[\\u0009-\\u000D\\u0020]'), string.matchRegEx('x', '[^\\u0000-\\uFFFF]'), string.matchRegEx('😀', '[^\\u0000-\\uFFFF]')
+string.matchRegEx(' ', '[\\u0009-\\u000D\\u0020]')
+string.matchRegEx('x', '[^\\u0000-\\uFFFF]')
+string.matchRegEx('😀', '[^\\u0000-\\uFFFF]')
+[[ ]]
+[]
+[[😀]]
+
+>> RETURN string.matchRegEx('ab', '(?:a|b)+'), string.matchRegEx('aaa', 'a{2,}'), string.matchRegEx('a{', 'a\\{')
+string.matchRegEx('ab', '(?:a|b)+')
+string.matchRegEx('aaa', 'a{2,}')
+string.matchRegEx('a{', 'a\\{')
+[[ab]]
+[[aaa]]
+[[a{]]
+
+>> RETURN string.matchRegEx('ab', '[\\p{L}-[b]]')
+string.matchRegEx('ab', '[\\p{L}-[b]]')
+[[a], [b]]
+
+==== # duration and date leniency
+
+>> RETURN duration('P1Y') IS NULL, duration('P0D') IS NULL, duration('PT1H30M') IS NULL, duration('P1W') IS NULL, duration('PT0.5S') IS NULL, duration('P1.5D') IS NULL
+duration('P1Y') IS NULL
+duration('P0D') IS NULL
+duration('PT1H30M') IS NULL
+duration('P1W') IS NULL
+duration('PT0.5S') IS NULL
+duration('P1.5D') IS NULL
+false
+false
+false
+false
+true
+true
+
+>> RETURN duration('P1Y') = duration('P12M'), duration('P1Y') = duration('P365D'), duration('P1D') = duration('PT24H'), duration('P1M') = duration('P30D')
+duration('P1Y') = duration('P12M')
+duration('P1Y') = duration('P365D')
+duration('P1D') = duration('PT24H')
+duration('P1M') = duration('P30D')
+true
+true
+true
+false
+
+>> RETURN date('2020-13-01')
+Failed to parse date
+
+
+>> RETURN date('2020-1-1'), date('20200101'), date('2020-001')
+Failed to parse date
+
+
+>> RETURN localdatetime('2020-01-01T25:00:00')
+localdatetime('2020-01-01T25:00:00')
+2020-01-01T00:00:00
+
+>> RETURN localdatetime('2020-01-01 10:00:00'), localdatetime('2020-01-01T10:00')
+localdatetime('2020-01-01 10:00:00')
+localdatetime('2020-01-01T10:00')
+2020-01-01T00:00:00
+2020-01-01T10:00:00
+
+>> RETURN localtime('10:00'), localtime('10:61:00')
+Failed to parse datetime
+

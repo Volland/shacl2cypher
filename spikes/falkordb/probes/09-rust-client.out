@@ -1,0 +1,97 @@
+graphs: Ok(["smoke", "probe", "probe2", "probe3"])
+
+== params: RETURN $limit AS l, $sampleSize AS s (timeout Some(0))
+header: ["l", "s"]
+row: [I64(9223372036854775807), I64(5)]
+elapsed: 622.625µs
+
+== unused params: RETURN 1 AS one (timeout Some(0))
+header: ["one"]
+row: [I64(1)]
+elapsed: 493.75µs
+
+== nodes: MATCH (n:Person) RETURN n ORDER BY n.id LIMIT $limit (timeout Some(0))
+header: ["n"]
+row: [Node(Node { entity_id: 0, labels: ["Person"], properties: {"name": String("Ann"), "id": String("a")} })]
+row: [Node(Node { entity_id: 1, labels: ["Person"], properties: {"id": String("b")} })]
+row: [Node(Node { entity_id: 2, labels: ["Person", "Employee"], properties: {"id": String("c"), "name": String("Cy")} })]
+elapsed: 3.170834ms
+
+== edge: MATCH (s)-[r:KNOWS]->(e) WHERE id(r) >= 0 RETURN r, type(r), toString(id(r)) LIMIT 1 (timeout Some(0))
+header: ["r", "type(r)", "toString(id(r))"]
+row: [Edge(Edge { entity_id: 1, relationship_type: "KNOWS", src_node_id: 0, dst_node_id: 1, properties: {"w": I64(2)} }), String("KNOWS"), String("1")]
+elapsed: 2.157417ms
+
+== path: MATCH p = (a:Person {id: 'a'})-[:KNOWS]->(b) RETURN p LIMIT 1 (timeout Some(0))
+header: ["p"]
+row error: ParsingArray
+elapsed: 490.958µs
+
+== scalars: RETURN null AS n, [1, 'a', null] AS l, {a: 1, b: [true]} AS m, 1.5 AS f, -9223372036854775808 AS min, 9223372036854775807 AS max, 'é😀
+' AS s (timeout Some(0))
+header: ["n", "l", "m", "f", "min", "max", "s"]
+row: [None, Array([I64(1), String("a"), None]), Map({"a": I64(1), "b": Array([Bool(true)])}), F64(1.5), I64(-9223372036854775808), I64(9223372036854775807), String("é😀\n")]
+elapsed: 493.459µs
+
+== temporals: RETURN date('2020-01-01') AS d, date('1960-06-15') AS old, localdatetime('2020-01-01T10:00:00') AS ldt, localtime('10:30:15') AS lt, duration('P1DT2H') AS du, point({latitude: 1.5, longitude: 2.5}) AS p, vecf32([1.0, 2.0]) AS v (timeout Some(0))
+header: ["d", "old", "ldt", "lt", "du", "p", "v"]
+row: [Date(Date { secs: 1577836800 }), Date(Date { secs: -301276800 }), DateTime(DateTime { secs: 1577872800 }), Time(Time { secs: -2208950985 }), Duration(Duration { secs: 93600 }), Point(Point { latitude: 1.5, longitude: 2.5 }), Vec32(Vec32 { values: [1.0, 2.0] })]
+elapsed: 463.792µs
+
+== summary: MATCH (s0)-[v0:KNOWS]->(e0) WITH s0, v0, e0 RETURN count(v0) AS violations, collect({type: type(v0), elementId: toString(id(v0))})[0..$sampleSize] AS sample (timeout Some(0))
+header: ["violations", "sample"]
+row: [I64(4), Array([Map({"elementId": String("1"), "type": String("KNOWS")}), Map({"type": String("KNOWS"), "elementId": String("0")}), Map({"elementId": String("2"), "type": String("KNOWS")}), Map({"type": String("KNOWS"), "elementId": String("3")})])]
+elapsed: 578µs
+
+== server timeout: UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x) (timeout Some(50))
+error: RedisError("timed out")
+display: An error occurred while sending the request to Redis: timed out
+elapsed: 283.979875ms
+
+== timeout 0: UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x) (timeout Some(0))
+header: ["count(x)"]
+row: [I64(2857142)]
+elapsed: 1.283110875s
+
+== no timeout argument: UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x) (timeout None)
+error: RedisError("timed out")
+display: An error occurred while sending the request to Redis: timed out
+elapsed: 1.133150666s
+
+== write refused: CREATE (:W) (timeout Some(0))
+error: RedisError("is to be executed only on read-only queries")
+display: An error occurred while sending the request to Redis: is to be executed only on read-only queries
+elapsed: 960.333µs
+
+== syntax error: MATCH (n:A|B) RETURN n (timeout Some(0))
+error: RedisError("Invalid input '|': expected a label, '{', a parameter or ')' line: 1, column: 11, offset: 10 errCtx: MATCH (n:A|B) RETURN n errCtxOffset: 10")
+display: An error occurred while sending the request to Redis: Invalid input '|': expected a label, '{', a parameter or ')' line: 1, column: 11, offset: 10 errCtx: MATCH (n:A|B) RETURN n errCtxOffset: 10
+elapsed: 449.792µs
+
+== invalid regex: RETURN string.matchRegEx('a', '(') (timeout Some(0))
+error: RedisError("regex, err=end pattern with unmatched parenthesis")
+display: An error occurred while sending the request to Redis: regex, err=end pattern with unmatched parenthesis
+elapsed: 491.917µs
+
+== type error: MATCH (n:V) RETURN size(n.v) (timeout Some(0))
+error: RedisError("mismatch: expected List, String, or Null but was Integer")
+display: An error occurred while sending the request to Redis: mismatch: expected List, String, or Null but was Integer
+elapsed: 528.291µs
+
+== missing graph: RETURN 1 (timeout Some(0))
+error: RedisError("Invalid graph operation on empty key")
+display: An error occurred while sending the request to Redis: Invalid graph operation on empty key
+elapsed: 466.042µs
+
+graphs after missing-graph probe: Ok(["smoke", "probe", "probe2", "probe3"])
+
+== client response timeout: UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x) (timeout Some(0))
+header: ["count(x)"]
+row: [I64(2857142)]
+elapsed: 1.268495833s
+
+== unreachable: build: RedisError("Connection refused (os error 61)") / An error occurred while sending the request to Redis: Connection refused (os error 61)
+
+== bad auth: build: RedisError("Password authentication failed - AuthenticationFailed") / An error occurred while sending the request to Redis: Password authentication failed - AuthenticationFailed
+
+== tls url: url: InvalidConnectionInfo("can't connect with TLS, the feature is not enabled - InvalidClientConfig")

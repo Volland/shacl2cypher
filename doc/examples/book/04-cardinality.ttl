@@ -1,0 +1,13 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix ex:  <http://example.org/hr#> .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    # Required and single-valued.
+    sh:property [ sh:path ex:name ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional, but at most one value.
+    sh:property [ sh:path ex:email ; sh:maxCount 1 ] ;
+    # A list property: between one and three distinct skills.
+    sh:property [ sh:path ex:skills ; sh:minCount 1 ; sh:maxCount 3 ] ;
+    # A relationship: at most one employer.
+    sh:property [ sh:path ex:worksFor ; sh:class ex:Company ; sh:maxCount 1 ] .

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shapes for Property Graphs — a short book on SHACL</title>
+<meta name="description" content="A short, free book that teaches SHACL from the ground up for people who work with labeled property graphs such as Neo4j and LadybugDB.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <span class="eyebrow">A short book</span>
+  <h1>Shapes for Property Graphs</h1>
+  <p class="lede">SHACL, taught from the ground up for people who work with Neo4j, LadybugDB and other labeled property graphs. Nine short chapters, one running example, and shapes you can compile and run at every step.</p>
+  <div class="cta">
+    <a class="btn btn-primary" href="01-why.html">Start reading</a>
+    <a class="btn btn-ghost" href="https://github.com/Volland/shacl2cypher/tree/main/doc/examples/book">Example files</a>
+  </div>
+</div>
+
+<section class="wrap narrow">
+  <h2>Who this is for</h2>
+  <p>You know what a node, a label, a property and a relationship are. You may never have written RDF. You want the rules your graph must follow written down in one place, in a standard language, and checked automatically rather than rediscovered in production.</p>
+  <p>SHACL was designed for RDF, so most tutorials start with triples and IRIs. This one starts with your graph. Every idea is shown twice: as SHACL, and as what it means for labels, properties and relationships.</p>
+
+  <h2>The running example</h2>
+  <p>Every chapter uses one small HR graph:</p>
+<pre><code>(:Person {id, name, email, age, status, skills: [..]})
+   -[:WORKS_FOR]->(:Company {id, name, markets: [..]})-[:LOCATED_IN]->(:City)
+(:Person)-[:MANAGES]->(:Person)
+(:Person)-[:KNOWS {since}]->(:Person)
+(:Person)-[:LIVES_AT]->(:Address {street, zip})
+(:Team)-[:MEMBER]->(:Person)</code></pre>
+  <p>All shapes live in the <code>ex:</code> namespace, <code>http://example.org/hr#</code>.</p>
+
+  <h2>How to follow along</h2>
+  <p>Install shacl2cypher (see <a href="../getting-started.html">Get started</a>) and clone the repository. Each chapter's shapes are in <code>doc/examples/book/</code>, and every one of them compiles. To see the Cypher a chapter's shapes turn into:</p>
+<pre><code>shacl2cypher compile doc/examples/book/02-first-shape.ttl --dialect neo4j --node-key id -o out/
+less out/queries.cypher</code></pre>
+  <p>To run them against a database, swap <code>compile</code> for <code>validate</code> and add <code>--connect bolt://…</code> or <code>--ladybug file.lbug</code>.</p>
+
+  <h2>Chapters</h2>
+  <div class="posts">
+    <a class="post-card" href="01-why.html"><div class="meta">Chapter 1</div><div class="k">Why shapes for a property graph</div><div class="v">What SHACL is, why a standard from the RDF world fits property graphs, and the handful of terms the rest of the book uses.</div></a>
+    <a class="post-card" href="02-turtle.html"><div class="meta">Chapter 2</div><div class="k">Turtle and your first shape</div><div class="v">Enough Turtle syntax to read and write shapes, a first node shape, and the queries it compiles into.</div></a>
+    <a class="post-card" href="03-targets.html"><div class="meta">Chapter 3</div><div class="k">Targets and focus nodes</div><div class="v">Which nodes and relationships a shape applies to: class targets, hierarchies, subjects-of and relationship targets.</div></a>
+    <a class="post-card" href="04-cardinality.html"><div class="meta">Chapter 4</div><div class="k">Property shapes and cardinality</div><div class="v">Required, optional, single- and multi-valued properties, and how nulls, lists and absent values are counted.</div></a>
+    <a class="post-card" href="05-values.html"><div class="meta">Chapter 5</div><div class="k">Constraining values</div><div class="v">Datatypes, ranges, lengths, patterns and allowed values, and why a wrong type is always a violation.</div></a>
+    <a class="post-card" href="06-relationships.html"><div class="meta">Chapter 6</div><div class="k">Relationships and paths</div><div class="v">Endpoint classes, incoming relationships, multi-hop sequences, alternatives and transitive paths.</div></a>
+    <a class="post-card" href="07-compare-closed.html"><div class="meta">Chapter 7</div><div class="k">Comparing properties and closing shapes</div><div class="v">Rules across two properties, such as start before end, and shapes that forbid anything undeclared.</div></a>
+    <a class="post-card" href="08-compose.html"><div class="meta">Chapter 8</div><div class="k">Composing shapes</div><div class="v">Reusable shapes, and / or / not / exactly-one, and qualified counts such as "at least one manager".</div></a>
+    <a class="post-card" href="09-severity-ci.html"><div class="meta">Chapter 9</div><div class="k">Severity, messages and CI</div><div class="v">Warnings versus violations, readable messages, stable rule names, and a validation gate in your pipeline.</div></a>
+  </div>
+</section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

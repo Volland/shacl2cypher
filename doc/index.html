@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shacl2cypher — validate property graphs with SHACL</title>
+<meta name="description" content="shacl2cypher compiles SHACL shapes into named, read-only Cypher queries that validate Neo4j and LadybugDB graphs and point at every broken rule.">
+<meta property="og:title" content="shacl2cypher">
+<meta property="og:description" content="Compile SHACL shapes into read-only Cypher that validates a labeled property graph.">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/icon.svg">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="getting-started.html">Get started</a>
+      <a href="guides/shacl.html">SHACL guide</a>
+      <a href="guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="book/index.html">Book</a>
+      <a href="reference.html">Reference</a>
+      <a href="articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<div class="wrap hero">
+  <span class="eyebrow">SHACL → Cypher compiler</span>
+  <h1>Validate a property graph with shapes, not hand-written queries.</h1>
+  <p class="lede">
+    shacl2cypher compiles standard W3C SHACL shapes into named, read-only Cypher queries.
+    Run them against Neo4j or LadybugDB and get back every broken rule, the node or
+    relationship that broke it, and the value at fault. Reports come as a table, JSON, JUnit or SARIF.
+  </p>
+  <div class="cta">
+    <a class="btn btn-primary" href="getting-started.html">Get started</a>
+    <a class="btn btn-ghost" href="book/index.html">Learn SHACL for property graphs</a>
+  </div>
+</div>
+
+<div class="wrap">
+<pre><code>$ shacl2cypher validate shapes.ttl --ladybug graph.lbug --node-key id
+STATUS      SEVERITY   VIOLATIONS  TIME(ms)  RULE
+failed      Violation           1        31  PersonShape.name.minCount
+            - Person id=p3: Person needs a name
+failed      Warning             1         3  PersonShape.name.pattern
+            - Person id=p1: ex:PersonShape violates sh:pattern on ex:name (value: "ann")
+failed      Violation           1         8  PersonShape.worksFor.maxCount
+            - Person id=p1: ex:PersonShape violates sh:maxCount on ex:worksFor
+
+3 rules: 0 passed, 3 failed, 0 timed out, 0 errors, 0 skipped, 0 guaranteed by schema; 3 violations in 42 ms</code></pre>
+</div>
+
+<hr class="rule">
+
+<section class="wrap">
+  <h2>The problem it removes</h2>
+  <p class="section-lede">
+    Property graphs built by applications have no native SHACL engine. The rules that keep the
+    data sane end up spread across application code, half-enforced database constraints, and
+    ad-hoc Cypher that someone runs by hand. shacl2cypher puts them in one declarative file and
+    turns that file into queries.
+  </p>
+  <div class="grid grid-3">
+    <div class="card">
+      <span class="tag">Standard</span>
+      <h3>Write SHACL, not a new DSL</h3>
+      <p>Shapes are plain W3C SHACL in Turtle. The optional <code>s2c:</code> hints are ignored by
+      other SHACL engines, so the same file still validates an RDF export with pySHACL.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Precise</span>
+      <h3>One query per constraint</h3>
+      <p>Each constraint becomes its own named query, so it can be run, timed and baselined on its own.
+      A failure names the rule, the focus node and the offending value.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Safe</span>
+      <h3>Read-only by construction</h3>
+      <p>Neo4j queries run in a transaction that is always rolled back. LadybugDB files are
+      opened read-only. Validation never changes your data.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section class="wrap">
+  <h2>How it works</h2>
+  <p class="section-lede">Compilation is a pure, deterministic pipeline. The same shapes, schema snapshot and options always give a byte-identical manifest.</p>
+  <ol class="steps">
+    <li><h3>Load</h3><p>Every shapes file, plus its <code>owl:imports</code>, is read into one union graph, and every triple remembers its file and line.</p></li>
+    <li><h3>Resolve</h3><p>Classes become labels, and predicates become properties or relationship types. The mapping uses naming conventions, then a schema snapshot, then explicit <code>s2c:</code> annotations, which always win.</p></li>
+    <li><h3>Lower and render</h3><p>Each constraint is lowered into a dialect-neutral IR and rendered as null-safe Cypher for Neo4j 5 or LadybugDB.</p></li>
+    <li><h3>Emit and run</h3><p><code>compile</code> writes <code>manifest.json</code> and <code>queries.cypher</code>. <code>validate</code> runs every summary query, then detail queries for the rules that failed, and writes a report with a CI-friendly exit code.</p></li>
+  </ol>
+</section>
+
+<hr class="rule">
+
+<section class="wrap">
+  <h2>What you get</h2>
+  <div class="grid grid-2">
+    <div class="card feature"><div class="k">Explained nested failures</div><div class="v">When an <code>sh:or</code> or <code>sh:node</code> fails, the row lists which inner constraints failed. A standard SHACL report only names the outer one.</div></div>
+    <div class="card feature"><div class="k">Schema-aware compilation</div><div class="v">With a schema snapshot, typos and missing labels become static diagnostics. On LadybugDB, constraints the typed schema already guarantees need no query at all.</div></div>
+    <div class="card feature"><div class="k">Stable names and fingerprints</div><div class="v">Rule ids are structural, e.g. <code>ex:PersonShape/ex:name/sh:minCount</code>. Fingerprints change only when a rule's meaning changes, so CI can tell a rule changed even when its name did not.</div></div>
+    <div class="card feature"><div class="k">Reports for people and pipelines</div><div class="v">Table output for a terminal, JSON for scripts, JUnit for test dashboards, and SARIF that points at the shapes file and line of each violated constraint.</div></div>
+    <div class="card feature"><div class="k">CLI, Python and Node.js</div><div class="v"><code>pip install shacl2cypher</code> and <code>npm install shacl2cypher</code> run the same compiler in-process, with output byte-identical to the CLI's.</div></div>
+    <div class="card feature"><div class="k">Tested against reference engines</div><div class="v">Conformance fixtures run on Neo4j, LadybugDB and pySHACL, and the W3C SHACL Core suite runs on Neo4j. Every outcome is recorded.</div></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section class="wrap">
+  <h2>Databases</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Database</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Neo4j 5</td><td><span class="pill pill-ok">Supported</span></td><td>Cypher without APOC. Schema snapshot optional. Connects over Bolt.</td></tr>
+        <tr><td>LadybugDB</td><td><span class="pill pill-ok">Supported</span></td><td>Embedded and strictly typed. A schema snapshot is required and is read from the database file automatically.</td></tr>
+        <tr><td>FalkorDB 4.20</td><td><span class="pill pill-warn">In development</span></td><td>A dedicated renderer is being built from spike findings. See <a href="articles/falkordb.html">the FalkorDB article</a>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section class="wrap">
+  <h2>Where to go next</h2>
+  <div class="next">
+    <a href="getting-started.html"><div class="k">Get started</div><div class="v">Install, compile your first shapes, validate a database.</div></a>
+    <a href="guides/shacl.html"><div class="k">Using SHACL with shacl2cypher</div><div class="v">How shapes map onto labels, properties and relationships.</div></a>
+    <a href="guides/lpg-modeler.html"><div class="k">With LPG Modeler</div><div class="v">Design a model, generate its SHACL, validate the database it describes.</div></a>
+    <a href="book/index.html"><div class="k">Shapes for Property Graphs</div><div class="v">A short book that teaches SHACL from the ground up.</div></a>
+    <a href="articles/about.html"><div class="k">Why shacl2cypher is built this way</div><div class="v">The design decisions behind the compiler.</div></a>
+    <a href="articles/falkordb.html"><div class="k">Bringing SHACL to FalkorDB</div><div class="v">What a spike found, and the renderer it led to.</div></a>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

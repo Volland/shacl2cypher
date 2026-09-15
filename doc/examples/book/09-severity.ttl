@@ -1,0 +1,31 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix s2c: <https://w3id.org/shacl2cypher#> .
+@prefix ex:  <http://example.org/hr#> .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    # Rows identify people by email rather than by --node-key.
+    s2c:key "email" ;
+    sh:property [
+        sh:path ex:name ;
+        sh:minCount 1 ;
+        sh:message "Person {$this} has no name" ;
+    ] ;
+    sh:property [
+        s2c:name "person-name-capitalised" ;
+        sh:path ex:name ;
+        sh:pattern "^[A-Z]" ;
+        sh:severity sh:Warning ;
+        sh:message "Name {?value} should start with a capital letter" ;
+    ] ;
+    sh:property [
+        sh:path ex:nickname ;
+        sh:maxLength 20 ;
+        sh:severity sh:Info ;
+    ] .
+
+# Switched off for now; the rule stays in the manifest as "deactivated".
+ex:LegacyShape a sh:NodeShape ;
+    sh:targetClass ex:LegacyAccount ;
+    sh:deactivated true ;
+    sh:property [ sh:path ex:migratedAt ; sh:minCount 1 ] .

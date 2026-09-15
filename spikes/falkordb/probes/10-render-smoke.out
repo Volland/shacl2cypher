@@ -1,0 +1,28 @@
+   6) "Query internal execution time: 0.566007 milliseconds"
+ok    ex:ClientShape/ex:name/sh:minCount                      violations=0
+ok    ex:CompanyShape/^ex:worksFor/sh:minCount                violations=0
+ok    ex:CompanyShape/ex:legalName/sh:minCount                violations=1
+ok    ex:EmployeeShape/ex:badge/sh:maxCount                   violations=0
+ok    ex:KnowsShape/ex:since/sh:datatype                      violations=1
+ok    ex:KnowsShape/ex:since/sh:maxCount                      violations=0
+ok    ex:PairShape/ex:lead/sh:disjoint                        violations=1
+ok    ex:PairShape/ex:lead/sh:equals                          violations=1
+ok    ex:PersonShape/sh:closed                                violations=2
+ok    ex:PersonShape/sh:or                                    violations=1
+ok    ex:PersonShape/ex:email|ex:phone/sh:minCount            violations=1
+ok    ex:PersonShape/ex:knows+/sh:class                       violations=2
+ok    ex:PersonShape/ex:address/sh:node                       violations=1
+ok    ex:PersonShape/ex:age/sh:datatype                       violations=2
+ok    ex:PersonShape/ex:age/sh:maxInclusive                   violations=2
+ok    ex:PersonShape/ex:age/sh:minInclusive                   violations=1
+ok    ex:PersonShape/ex:manager/sh:node                       violations=1
+ok    ex:PersonShape/ex:name/sh:datatype                      violations=0
+ok    ex:PersonShape/ex:name/sh:maxCount                      violations=1
+ok    ex:PersonShape/ex:name/sh:minCount                      violations=0
+ok    ex:PersonShape/ex:name/sh:minLength                     violations=1
+ok    ex:PersonShape/ex:name/sh:pattern                       violations=0
+ok    ex:PersonShape/ex:start/sh:lessThan                     violations=1
+ok    ex:PersonShape/ex:tags/sh:in                            violations=1
+ok    ex:PersonShape/ex:worksFor/sh:class                     violations=0
+ok    ex:PersonShape/ex:worksFor/sh:maxCount                  violations=1
+errors: 0

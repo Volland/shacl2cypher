@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. Why shapes for a property graph — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 1: what SHACL is, why it fits labeled property graphs, and the vocabulary the book uses.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>1. Why shapes for a property graph</h1>
+  <p class="lede">Your graph already has rules. They're just scattered. This chapter explains what SHACL is, why a standard from the RDF world is a good home for those rules, and the few words you need for the rest of the book.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html" aria-current="page">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<h2>The rules you already have</h2>
+<p>Think about the HR graph from the introduction. Nobody wrote it down, but everyone on the team knows that:</p>
+<ul>
+  <li>every person has a name, and exactly one;</li>
+  <li>a person works for at most one company, and that thing really is a <code>:Company</code>;</li>
+  <li>an age is a whole number between 0 and 130;</li>
+  <li>a project ends after it starts;</li>
+  <li>every team has at least one manager among its members.</li>
+</ul>
+<p>Where do those rules live today? Some are in application code, often in more than one service. Some are database constraints: Neo4j can enforce uniqueness and, in Enterprise Edition, existence and property types; LadybugDB enforces column types but has no <code>NOT NULL</code> outside the primary key. A few live in a Cypher query someone runs when a dashboard looks wrong. None of these places can tell you <em>which nodes break which rule right now</em>.</p>
+
+<h2>What SHACL is</h2>
+<p><strong>SHACL</strong>, the Shapes Constraint Language, is a W3C Recommendation from 2017 for describing what valid data looks like. You write <em>shapes</em>; a validator checks data against them and produces a <em>report</em> of every violation.</p>
+<p>Three properties make it a good fit for graph rules:</p>
+<ul>
+  <li><strong>It is declarative.</strong> You say "a person has exactly one name". You don't write the query that finds people without one.</li>
+  <li><strong>It is closed-world validation.</strong> A missing name is a violation, not an unknown fact. That is the meaning you want for a database schema. (OWL, the other famous RDF standard, is open-world: it would infer that the name exists somewhere, unknown. That is why OWL is the wrong tool for this job.)</li>
+  <li><strong>It is a standard.</strong> Other teams, tools and validators already read it. A shapes file outlives any one codebase.</li>
+</ul>
+
+<h2>The catch, and the bridge</h2>
+<p>SHACL was designed for RDF, where everything is a triple: <em>subject, predicate, object</em>. Your graph is a labeled property graph. The two models are close enough to translate:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>RDF, as SHACL sees it</th><th>Your property graph</th></tr></thead>
+  <tbody>
+    <tr><td>A resource with an IRI, e.g. <code>ex:ann</code></td><td>A node, identified by a key property such as <code>id</code></td></tr>
+    <tr><td><code>ex:ann rdf:type ex:Person</code></td><td>The node has the label <code>:Person</code></td></tr>
+    <tr><td><code>ex:ann ex:name "Ann"</code>, a literal value</td><td>The property <code>name: "Ann"</code></td></tr>
+    <tr><td><code>ex:ann ex:worksFor ex:acme</code>, a resource value</td><td>The relationship <code>(ann)-[:WORKS_FOR]-&gt;(acme)</code></td></tr>
+    <tr><td>Several triples with the same predicate</td><td>A list property, or several relationships</td></tr>
+    <tr><td>(nothing)</td><td>Properties on a relationship</td></tr>
+    <tr><td>Language tags, blank nodes</td><td>(nothing)</td></tr>
+  </tbody>
+</table></div>
+<p>shacl2cypher is the bridge. You write standard SHACL as if your graph were RDF. It maps classes to labels and predicates to properties or relationships, then compiles every constraint into a read-only Cypher query that finds the violations. Where the translation is ambiguous, small <code>s2c:</code> annotations make it exact; other SHACL tools ignore them.</p>
+
+<h2>Words used in this book</h2>
+<dl class="args">
+  <dt>shape</dt><dd>A set of constraints with a name. A <em>node shape</em> describes a kind of node; a <em>property shape</em> describes the values reached through one path.</dd>
+  <dt>target</dt><dd>What a shape applies to, for example "every node labelled <code>:Person</code>".</dd>
+  <dt>focus node</dt><dd>One node (or, with shacl2cypher, one relationship) being checked against a shape.</dd>
+  <dt>path</dt><dd>How to get from the focus node to the values being checked: a property, a relationship, or a chain of them.</dd>
+  <dt>value nodes</dt><dd>The values a path reaches from one focus node. Might be zero, one or many.</dd>
+  <dt>constraint</dt><dd>One condition inside a shape, e.g. <code>sh:minCount 1</code>. shacl2cypher compiles each one into a separate named <em>rule</em>.</dd>
+  <dt>violation</dt><dd>A focus node, and usually a value, that fails a constraint. Each one is a row in the report.</dd>
+</dl>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li>SHACL describes valid data declaratively, with closed-world meaning, the same meaning as a database schema.</li>
+    <li>RDF classes map to labels, literal predicates to properties, resource predicates to relationships.</li>
+    <li>shacl2cypher compiles each constraint into a read-only query and reports violations with the node and value at fault.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="index.html"><div class="dir">← Previous</div><div class="t">Introduction</div></a>
+  <a class="next-ch" href="02-turtle.html"><div class="dir">Next →</div><div class="t">2. Turtle and your first shape</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

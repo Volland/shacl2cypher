@@ -1,0 +1,189 @@
+==== (1) repeated executions of the same reduce query
+
+>> [repro_card] CYPHER limit=9223372036854775807 sampleSize=5 MATCH (v0:`Person`) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) RETURN v0.`id` AS id LIMIT $limit
+id
+p2
+p3
+Cached execution: 0
+
+>> [repro_card] CYPHER limit=9223372036854775807 sampleSize=5 MATCH (v0:`Person`) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) RETURN v0.`id` AS id LIMIT $limit
+id
+p2
+p3
+Cached execution: 1
+
+>> [repro_card] CYPHER limit=9223372036854775807 sampleSize=5 MATCH (v0:`Person`) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) RETURN v0.`id` AS id LIMIT $limit
+id
+p2
+p3
+Cached execution: 1
+
+>> [repro_card] CYPHER limit=9223372036854775807 sampleSize=5 MATCH (v0:`Person`) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) WITH count(*) AS n, collect(v0.`id`)[0..$sampleSize] AS sample RETURN n, sample
+n
+sample
+2
+[p2, p3]
+Cached execution: 0
+
+>> [repro_card] CYPHER limit=9223372036854775807 sampleSize=5 MATCH (v0:`Person`) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) WITH count(*) AS n, collect(v0.`id`)[0..$sampleSize] AS sample RETURN n, sample
+n
+sample
+2
+[p2, p3]
+Cached execution: 1
+
+>> [repro_card] CYPHER limit=9223372036854775807 sampleSize=5 MATCH (v0:`Person`) WITH v0 WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1) RETURN v0.`id` AS id LIMIT $limit
+id
+p2
+p3
+Cached execution: 1
+
+>> [repro_card] CYPHER limit=9223372036854775807 MATCH (v0:`Person`) RETURN v0.`id` AS id, size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) AS n ORDER BY id
+id
+n
+p1
+2
+p2
+0
+p3
+0
+p4
+3
+p5
+1
+p6
+1
+Cached execution: 0
+
+>> [repro_card] CYPHER limit=9223372036854775807 MATCH (v0:`Person`) RETURN v0.`id` AS id, size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) AS n ORDER BY id
+id
+n
+p1
+2
+p2
+0
+p3
+0
+p4
+3
+p5
+1
+p6
+1
+Cached execution: 1
+==== (2) reduce-free distinct counts
+
+>> [repro_card] MATCH (v0:`Person`) CALL { WITH v0 UNWIND CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END AS x1 RETURN count(DISTINCT x1) >= 1 AS c2 } WITH v0, c2 WHERE NOT (c2) RETURN v0.`id` AS id ORDER BY id
+id
+p2
+p3
+Cached execution: 0
+
+>> [repro_card] MATCH (v0:`Person`) WITH v0, CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END AS l RETURN v0.`id` AS id, size([i IN range(0, size(l) - 1) WHERE NOT l[i] IN l[0..i]]) AS n ORDER BY id
+id
+n
+p1
+2
+p2
+0
+p3
+0
+p4
+3
+p5
+1
+p6
+1
+Cached execution: 0
+
+>> [repro_card] MATCH (v0:`Person`) CALL { WITH v0 UNWIND CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END AS x1 RETURN count(DISTINCT x1) >= 1 AS c2 } WITH v0, c2 WHERE NOT (c2) RETURN v0.`id` AS id ORDER BY id
+id
+p2
+p3
+Cached execution: 1
+
+>> [repro_card] MATCH (v0:`Person`) WITH v0, CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END AS l RETURN v0.`id` AS id, size([i IN range(0, size(l) - 1) WHERE NOT l[i] IN l[0..i]]) AS n ORDER BY id
+id
+n
+p1
+2
+p2
+0
+p3
+0
+p4
+3
+p5
+1
+p6
+1
+Cached execution: 1
+
+>> [repro_card] MATCH (v0:`Person`) CALL { WITH v0 UNWIND CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END AS x1 RETURN count(DISTINCT CASE WHEN x1 <> 'b' THEN x1 END) AS c2 } RETURN v0.`id` AS id, c2 ORDER BY id
+id
+c2
+p1
+1
+p2
+0
+p3
+0
+p4
+2
+p5
+1
+p6
+1
+Cached execution: 0
+
+>> [repro_card] UNWIND [1, 1.0, '1', null] AS x RETURN count(DISTINCT x) AS n
+n
+2
+Cached execution: 0
+==== (3) temporal component accessors
+
+>> [repro_card] RETURN date('0005-03-04').year AS y, date('0005-03-04').month AS m, date('0005-03-04').day AS d, localdatetime('0999-01-02T09:05:07').hour AS h, localdatetime('0999-01-02T09:05:07').minute AS mi, localdatetime('0999-01-02T09:05:07').second AS s, localtime('09:05:07').hour AS th
+y
+m
+d
+h
+mi
+s
+th
+5
+3
+4
+9
+5
+7
+9
+Cached execution: 0
+
+>> [repro_card] RETURN (CASE WHEN typeOf('abc') = 'Date' THEN 'abc' END).year AS s, (CASE WHEN typeOf(5) = 'Date' THEN 5 END).year AS i, (CASE WHEN typeOf(date('1900-01-01')) = 'Date' THEN date('1900-01-01') END).year AS d
+s
+i
+d
+
+
+1900
+Cached execution: 0
+
+>> [repro_card] WITH date('1900-01-01') AS a, date('2020-12-31') AS b RETURN a.year * 10000 + a.month * 100 + a.day < b.year * 10000 + b.month * 100 + b.day AS lt
+lt
+true
+Cached execution: 0
+
+>> [repro_card] WITH [date('0999-12-31'), date('1000-01-01')] AS ds RETURN [d IN ds | d.year * 10000 + d.month * 100 + d.day] AS keys
+keys
+[9991231, 10000101]
+Cached execution: 0
+==== (4) double precision in the database vs the protocol
+
+>> [repro_card] RETURN 0.1 + 0.2 AS v, 0.1 + 0.2 = 0.30000000000000004 AS exact, 2.2250738585072014e-308 = 2.225073858507201e-308 AS distinct_min, 1.1449084417284436e190 = 1.14490844172844e190 AS distinct_big, toString(1.1449084417284436e190) AS s
+Float overflow '1.14490844172844e190'
+
+
+>> [repro_card] RETURN 1.1449084417284436e190 - 1.14490844172844e190 AS diff
+diff
+3.56155778121271e+175
+Cached execution: 0

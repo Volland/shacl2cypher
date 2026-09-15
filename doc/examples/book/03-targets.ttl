@@ -1,0 +1,25 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix s2c:  <https://w3id.org/shacl2cypher#> .
+@prefix ex:   <http://example.org/hr#> .
+
+# A class hierarchy: every :Employee is also checked as a :Person.
+ex:Employee rdfs:subClassOf ex:Person .
+
+# Class target: the focus nodes are all :Person (and :Employee) nodes.
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:name ; sh:minCount 1 ] .
+
+# Subjects-of target: every node with an outgoing MANAGES relationship.
+# Without the annotation, a bare predicate resolves to a property named `manages`.
+ex:manages s2c:relationship "MANAGES" .
+ex:ManagerShape a sh:NodeShape ;
+    sh:targetSubjectsOf ex:manages ;
+    sh:property [ sh:path ex:title ; sh:minCount 1 ] .
+
+# Relationship target: every KNOWS relationship is a focus.
+ex:KnowsShape a sh:NodeShape ;
+    s2c:targetRelationship "KNOWS" ;
+    sh:property [ sh:path ex:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .

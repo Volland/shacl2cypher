@@ -1,0 +1,13 @@
+[package]
+name = "spike-falkordb"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.87"
+publish = false
+
+# Throwaway spike for add-falkordb-dialect tasks 1.1-1.8; not part of the product workspace.
+[workspace]
+
+[dependencies]
+falkordb = "=0.10.3"
+redis = "=1.2.2"

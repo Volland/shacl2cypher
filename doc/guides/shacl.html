@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using SHACL with shacl2cypher</title>
+<meta name="description" content="How SHACL shapes map onto labels, properties and relationships in shacl2cypher: conventions, schema snapshots, s2c annotations, strict mode and practical recipes.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="shacl.html" aria-current="page">SHACL guide</a>
+      <a href="lpg-modeler.html">With LPG Modeler</a>
+      <a href="../book/index.html">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <span class="eyebrow">Guide</span>
+  <h1>Using SHACL with shacl2cypher</h1>
+  <p class="lede">SHACL talks about RDF: IRIs, predicates and literals. Your database has labels, properties and relationships. This guide covers how shacl2cypher bridges the two, and how to take control when its defaults guess wrong.</p>
+  <p class="post-meta">New to SHACL itself? Read <a href="../book/index.html">Shapes for Property Graphs</a> first.</p>
+</div>
+
+<div class="wrap">
+<article class="post">
+
+<h2 id="mental-model">The mental model</h2>
+<p>You write ordinary SHACL, as if your graph were RDF. shacl2cypher translates every term the shapes mention into an element of your property graph:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>In the shapes</th><th>In the property graph</th><th>Default name</th></tr></thead>
+  <tbody>
+    <tr><td>Class <code>ex:Person</code></td><td>Label / node table</td><td><code>:Person</code>, the local name</td></tr>
+    <tr><td>Predicate with literal values <code>ex:name</code></td><td>Property</td><td><code>name</code>, the local name</td></tr>
+    <tr><td>Predicate with node values <code>ex:worksFor</code></td><td>Relationship, outgoing</td><td><code>WORKS_FOR</code>, UPPER_SNAKE_CASE</td></tr>
+    <tr><td>A node (IRI)</td><td>A node, identified by a key property</td><td><code>--node-key</code> or <code>s2c:key</code></td></tr>
+    <tr><td>(no RDF equivalent)</td><td>Properties on a relationship</td><td><code>s2c:targetRelationship</code></td></tr>
+  </tbody>
+</table></div>
+<p>The resolution order is always the same: <strong>explicit <code>s2c:</code> annotations win</strong>, then structural hints and schema-snapshot evidence, then naming convention. <code>--strict</code> rejects anything that was decided by convention alone.</p>
+
+<h2 id="labels">Labels and class hierarchies</h2>
+<p>A class target or <code>sh:class</code> becomes a label check. <code>rdfs:subClassOf</code> triples from the shapes files and from <code>--ontology</code> files are expanded transitively, so a shape targeting <code>ex:Person</code> also checks <code>:Employee</code> nodes when <code>ex:Employee rdfs:subClassOf ex:Person</code>.</p>
+<ul>
+  <li><strong>Neo4j</strong>: with <code>--neo4j-labels explicit</code> (default) the query matches <code>(n:Person|Employee)</code>. If your nodes already carry every superclass label, pass <code>--neo4j-labels inherited</code> and the query matches only <code>:Person</code>.</li>
+  <li><strong>LadybugDB</strong>: a node lives in exactly one table, so expansion always happens.</li>
+</ul>
+<p>Rename a label with <code>s2c:label</code> on the class or on a node shape with a single class target:</p>
+<pre><code>ex:Person s2c:label "Human" .</code></pre>
+
+<h2 id="properties-vs-relationships">Property or relationship?</h2>
+<p>This is the one decision that matters most, because the same predicate could be either. A path step is a <strong>relationship</strong> when any of these holds:</p>
+<ol>
+  <li>It is annotated with <code>s2c:relationship</code> or <code>s2c:direction</code>.</li>
+  <li>Its position must yield nodes: an inverse step, a repeated step (<code>*</code>, <code>+</code>, <code>?</code>), or any step before the last in a sequence.</li>
+  <li>Its property shape has <code>sh:class</code>, <code>sh:node</code>, or <code>sh:nodeKind</code> of <code>sh:IRI</code>, <code>sh:BlankNode</code> or <code>sh:BlankNodeOrIRI</code>.</li>
+  <li>The schema snapshot declares the conventional relationship type and no focus label declares a property with that name.</li>
+</ol>
+<p>Otherwise it is a <strong>property</strong>. A property declared in the snapshot always beats a structural hint, so a hint can never turn a real property into an always-empty relationship.</p>
+<div class="note"><p><strong>The common surprise.</strong> <code>sh:path ex:manager ; sh:minCount 1</code> with no hint and no schema checks a <em>property</em> called <code>manager</code>. If <code>manager</code> is a relationship in your graph, add <code>sh:class ex:Person</code>, <code>sh:nodeKind sh:IRI</code>, or <code>ex:manager s2c:relationship "MANAGER"</code>. Or compile with a schema snapshot, and the evidence decides.</p></div>
+
+<h3>Direction</h3>
+<p>Relationships are outgoing by default. <code>sh:inversePath</code> flips a step. If your RDF vocabulary names the reverse direction, keep the vocabulary and annotate:</p>
+<pre><code><span class="c-com"># "Company employs Person", stored as (:Person)-[:WORKS_FOR]->(:Company)</span>
+ex:employs s2c:relationship "WORKS_FOR" ;
+           s2c:direction    "in" .</code></pre>
+
+<h2 id="schema">Schema snapshots</h2>
+<p>A snapshot is a JSON description of node types, relationship types with endpoints, and typed properties. Get one with <code>shacl2cypher schema dump</code>. It does three jobs:</p>
+<ul>
+  <li><strong>Disambiguation.</strong> It settles whether a path is a property or a relationship (rule 4 above).</li>
+  <li><strong>Static diagnostics.</strong> A label, property or relationship type the shapes mention but the snapshot lacks is reported as <code>s2c:SchemaMismatch</code> with its file and line. <code>--fail-on-schema-mismatch</code> turns these into a compile error for CI.</li>
+  <li><strong>Guarantees.</strong> On LadybugDB the schema is enforced, so a <code>sh:datatype xsd:string</code> on a <code>STRING</code> column, or a <code>sh:class</code> on a relationship whose rel table only reaches that class, needs no query. Those rules get <code>status: guaranteed-by-schema</code>.</li>
+</ul>
+<p>On Neo4j the snapshot is optional and only an observation of the data, so it never marks a rule as guaranteed. On LadybugDB it is required; <code>validate --ladybug</code> reads it from the file for you.</p>
+
+<h2 id="identity">Node identity and IRI constants</h2>
+<p>Result rows identify the focus node by a key: the shape's <code>s2c:key</code>, else <code>--node-key</code>, always alongside the database element id.</p>
+<pre><code>ex:CarShape s2c:key "vin" .</code></pre>
+<p>IRIs used as constants in <code>sh:in</code> and <code>sh:hasValue</code> are compared by local name against properties (<code>ex:Active</code> matches the string <code>"Active"</code>), or as full IRIs with <code>s2c:iriAsString "full"</code>. Against relationships, they match the end node's key: <code>sh:hasValue ex:acme</code> on <code>ex:worksFor</code> means "works for the node whose key is <code>acme</code>". This needs <code>--node-key</code>.</p>
+
+<h2 id="value-sets">Lists and missing values</h2>
+<p>Every path yields a <em>set of values</em>:</p>
+<ul>
+  <li>A scalar property is one value. A list property is one value per element, and nulls inside lists are dropped.</li>
+  <li><code>null</code>, an absent property and an empty list are all the empty set.</li>
+  <li>Value constraints (<code>sh:datatype</code>, ranges, lengths, patterns, <code>sh:in</code>, <code>sh:class</code>) are satisfied by an empty set. Only <code>sh:minCount</code> and <code>sh:hasValue</code> notice that something is missing.</li>
+</ul>
+<p>To treat a list as one value, for example to check <code>sh:datatype</code> against a <code>LIST&lt;STRING&gt;</code> column, use <code>s2c:collection "scalar"</code> together with <code>s2c:datatype "LIST&lt;STRING&gt;"</code>.</p>
+
+<h2 id="recipes">Recipes</h2>
+
+<h3>Validate properties on relationships</h3>
+<p>RDF has no properties on edges, so SHACL has no target for them. <code>s2c:targetRelationship</code> makes every relationship of a type a focus:</p>
+<pre><code>ex:KnowsShape s2c:targetRelationship "KNOWS" ;
+    sh:property [ sh:path ex:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .</code></pre>
+<p>Only value constraints on single-property paths apply there. Rows carry a relationship focus <code>{type, startKey, endKey, elementId}</code>.</p>
+
+<h3>The RDF name and the graph name differ</h3>
+<pre><code>ex:fullName s2c:property     "name" .
+ex:employer s2c:relationship "WORKS_FOR" .
+ex:Human    s2c:label        "Person" .</code></pre>
+<p>Put the annotation on the predicate to apply it everywhere, or on one property shape to apply it only there. Shape-level annotations work for simple paths only.</p>
+
+<h3>Exact temporal types</h3>
+<p><code>xsd:dateTime</code> accepts both zoned and local date-times. To demand one:</p>
+<pre><code>[ sh:path ex:createdAt ; sh:datatype xsd:dateTime ; s2c:datatype "ZONED_DATETIME" ]</code></pre>
+
+<h3>Layer project-specific hints over shared shapes</h3>
+<p>All input files are unioned into one shapes graph. You can keep a clean, portable shapes file and add a second file with the <code>s2c:</code> annotations, deactivations and extra shapes that only your property graph needs:</p>
+<pre><code>shacl2cypher validate domain.shacl.ttl domain.lpg-overlay.ttl --connect bolt://localhost:7687</code></pre>
+<p>Settings that may only have one value, such as two different <code>sh:severity</code> values on one shape, are compile errors that list both locations. The <a href="lpg-modeler.html">LPG Modeler guide</a> uses this pattern for generated shapes.</p>
+
+<h3>Roll out a rule gradually</h3>
+<p>Start new constraints at <code>sh:severity sh:Warning</code> and validate with the default <code>--fail-on violation</code>: warnings show up in the report but do not fail the build. Raise the severity once the data is clean. Use <code>sh:deactivated true</code> to park a rule; it stays visible in the manifest as <code>deactivated</code>.</p>
+
+<h3>Make every mapping reviewable</h3>
+<p>Compile with <code>--strict</code> and a schema snapshot. Every name must then be annotated or confirmed by the schema, so a typo like <code>ex:emial</code> is a compile error instead of a rule that silently finds nothing.</p>
+
+<h2 id="differences">Where results differ from an RDF SHACL engine</h2>
+<ul>
+  <li><code>sh:closed</code> also forbids undeclared <em>outgoing relationships</em>, and always allows the node key. Incoming relationships are not constrained.</li>
+  <li><code>sh:minLength</code> and <code>sh:maxLength</code> apply to strings and integers only.</li>
+  <li>Node values are IRIs and property values are literals for <code>sh:nodeKind</code>; blank nodes never occur.</li>
+  <li>Rows for nested shapes include <code>details</code>: the inner rule ids that failed. That goes beyond the standard report.</li>
+</ul>
+
+<h2 id="unsupported">Not supported</h2>
+<p>These are rejected at compile time, or recorded as <code>unsupported</code> rules with <code>--lenient</code>:</p>
+<ul>
+  <li><code>sh:targetNode</code>: there are no IRIs to name.</li>
+  <li>SHACL-SPARQL and SPARQL-based constraint components.</li>
+  <li><code>sh:languageIn</code>, <code>sh:uniqueLang</code> and <code>rdf:langString</code>: property graphs have no language tags.</li>
+  <li>Recursive shapes, because nested shapes are inlined into the query.</li>
+  <li>Property shapes nested inside property shapes (not yet).</li>
+</ul>
+
+<h2 id="dialects">Dialect notes</h2>
+<ul>
+  <li><strong>LadybugDB table names are case-insensitive.</strong> <code>ex:Address</code> (label <code>Address</code>) and <code>ex:address</code> (relationship <code>ADDRESS</code>) collide. Rename one with <code>s2c:label</code> or <code>s2c:relationship</code>.</li>
+  <li>LadybugDB rejects regex back-references and caps variable-length paths at 30 hops, so <code>--max-path-depth</code> above 30 is an error there.</li>
+  <li>Neo4j decodes <code>\uXXXX</code> even inside backticks, so an identifier containing that text cannot be rendered and fails compilation instead of matching the wrong name.</li>
+  <li>Patterns are parsed as XSD regular expressions and rewritten for each engine. They are never passed through verbatim, and an invalid pattern is a compile error at its source line.</li>
+</ul>
+
+</article>
+</div>
+
+<section class="wrap">
+  <h2>Where to go next</h2>
+  <div class="next">
+    <a href="lpg-modeler.html"><div class="k">With LPG Modeler</div><div class="v">Generate shapes from a model and validate the database.</div></a>
+    <a href="../book/06-relationships.html"><div class="k">Relationships and paths</div><div class="v">The book chapter on traversals, inverse and repeated paths.</div></a>
+    <a href="../reference.html#annotations"><div class="k">Annotation reference</div><div class="v">Every s2c: term in one table.</div></a>
+  </div>
+</section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,248 @@
+==== cardinality: compiled tags.minCount detail
+MATCH (v0:`Person`)
+WITH v0
+WHERE NOT (size(reduce(x2 = [], x1 IN CASE typeOf(v0.`tags`) WHEN 'Null' THEN [] WHEN 'List' THEN v0.`tags` ELSE [v0.`tags`] END | CASE WHEN x1 IS NULL OR x1 IN x2 THEN x2 ELSE x2 + [x1] END)) >= 1)
+RETURN 'PersonShape.tags.minCount' AS ruleId, 'ex:PersonShape' AS shape, 'ex:tags' AS path, 'sh:minCount' AS `constraint`, 'Violation' AS severity,
+       {label: head([l IN labels(v0) WHERE l IN ['Person']] + labels(v0)), key: 'id', keyValue: v0.`id`, elementId: toString(id(v0))} AS focus, null AS value, 'ex:PersonShape violates sh:minCount on ex:tags' AS message, [] AS details
+LIMIT $limit
+
+>> tags.minCount detail
+ruleId
+shape
+path
+constraint
+severity
+focus
+value
+message
+details
+PersonShape.tags.minCount
+ex:PersonShape
+ex:tags
+sh:minCount
+Violation
+{label: Person, key: id, keyValue: p2, elementId: 1}
+
+ex:PersonShape violates sh:minCount on ex:tags
+[]
+PersonShape.tags.minCount
+ex:PersonShape
+ex:tags
+sh:minCount
+Violation
+{label: Person, key: id, keyValue: p3, elementId: 2}
+
+ex:PersonShape violates sh:minCount on ex:tags
+[]
+==== cardinality: reduce per row
+
+>> distinct tags per node
+v0.id
+v0.tags
+typeOf(v0.tags)
+n
+p1
+[a, b]
+List
+2
+p2
+
+Null
+0
+p3
+[]
+List
+0
+p4
+[a, b, c]
+List
+3
+p5
+[a, a]
+List
+1
+p6
+[a]
+List
+1
+
+>> distinct tags without ORDER BY
+v0.id
+n
+p1
+2
+p2
+0
+p3
+0
+p4
+3
+p5
+1
+p6
+1
+
+>> with WHERE
+v0.id
+p2
+p3
+
+>> reduce plain list
+v0.id
+l
+n
+p1
+[a, b]
+2
+p2
+[]
+0
+p3
+[]
+0
+p4
+[a, b, c]
+3
+p5
+[a, a]
+2
+p6
+[a]
+1
+
+>> reduce on literal first
+n
+2
+0
+3
+
+>> IN on empty accumulator
+r
+e
+o
+[a, b]
+false
+true
+==== ranges: compiled born rules
+WHERE v1 IS NOT NULL AND NOT (coalesce(v1 > date('1900-01-01'), false))
+       {label: head([l IN labels(v0) WHERE l IN ['Person']] + labels(v0)), key: 'id', keyValue: v0.`id`, elementId: toString(id(v0))} AS focus, v1 AS value, 'ex:PersonShape violates sh:minExclusive on ex:born' AS message, [] AS details
+
+>> PersonShape.born.minExclusive detail
+ruleId
+shape
+path
+constraint
+severity
+focus
+value
+message
+details
+PersonShape.born.minExclusive
+ex:PersonShape
+ex:born
+sh:minExclusive
+Violation
+{label: Person, key: id, keyValue: p1, elementId: 0}
+2000-01-01
+ex:PersonShape violates sh:minExclusive on ex:born
+[]
+PersonShape.born.minExclusive
+ex:PersonShape
+ex:born
+sh:minExclusive
+Violation
+{label: Person, key: id, keyValue: p2, elementId: 1}
+2021-01-01
+ex:PersonShape violates sh:minExclusive on ex:born
+[]
+PersonShape.born.minExclusive
+ex:PersonShape
+ex:born
+sh:minExclusive
+Violation
+{label: Person, key: id, keyValue: p3, elementId: 2}
+1900-01-01
+ex:PersonShape violates sh:minExclusive on ex:born
+[]
+WHERE v1 IS NOT NULL AND NOT (coalesce(v1 <= date('2020-12-31'), false))
+       {label: head([l IN labels(v0) WHERE l IN ['Person']] + labels(v0)), key: 'id', keyValue: v0.`id`, elementId: toString(id(v0))} AS focus, v1 AS value, 'ex:PersonShape violates sh:maxInclusive on ex:born' AS message, [] AS details
+
+>> PersonShape.born.maxInclusive detail
+ruleId
+shape
+path
+constraint
+severity
+focus
+value
+message
+details
+PersonShape.born.maxInclusive
+ex:PersonShape
+ex:born
+sh:maxInclusive
+Violation
+{label: Person, key: id, keyValue: p2, elementId: 1}
+2021-01-01
+ex:PersonShape violates sh:maxInclusive on ex:born
+[]
+PersonShape.born.maxInclusive
+ex:PersonShape
+ex:born
+sh:maxInclusive
+Violation
+{label: Person, key: id, keyValue: p3, elementId: 2}
+1900-01-01
+ex:PersonShape violates sh:maxInclusive on ex:born
+[]
+==== ranges: date comparisons across 1970
+
+>> literal comparisons
+a
+b
+c
+d
+e
+f
+false
+false
+true
+true
+true
+true
+
+>> stored comparisons
+p.id
+p.born
+gt1900
+le2020
+lt1970
+p1
+2000-01-01
+false
+true
+false
+p2
+2021-01-01
+false
+false
+false
+p3
+1900-01-01
+false
+false
+false
+
+>> localdatetime before 1970
+a
+b
+false
+true
+
+>> negative epoch arithmetic
+d
+a
+b
+1900-01-01
+true
+true

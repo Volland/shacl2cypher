@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shacl2cypher with LPG Modeler</title>
+<meta name="description" content="Design a property graph in LPG Modeler, generate its SHACL shapes and database DDL, and validate the live database with shacl2cypher. A tested end-to-end walkthrough.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="shacl.html">SHACL guide</a>
+      <a href="lpg-modeler.html" aria-current="page">With LPG Modeler</a>
+      <a href="../book/index.html">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <span class="eyebrow">Guide</span>
+  <h1>Model it, generate it, then check the data</h1>
+  <p class="lede"><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a> turns one YAML model into database DDL and SHACL shapes. shacl2cypher runs those shapes against the database. Together they close the loop between the schema you designed and the data you actually have.</p>
+  <p class="post-meta">Tested with lpg-modeler-cli 0.10.1, shacl2cypher 0.2.0 and LadybugDB. Every command and output on this page comes from a real run.</p>
+</div>
+
+<div class="wrap">
+<article class="post">
+
+<h2 id="why">Why the two belong together</h2>
+<p>A model says what the data must look like, but no single database enforces all of it. LadybugDB has typed tables but no <code>NOT NULL</code> outside the primary key. Neo4j Community cannot enforce existence constraints. Neither can express "a booking ends after it starts".</p>
+<p>LPG Modeler already knows this. Every target reports what it cannot enforce, and the SHACL target carries the constraints the database drops:</p>
+<pre><code><span class="c-warn">social.lpg.yaml:28:7 warning [ladybug] downgrade-required: Property 'Person.email' is required,
+which LadybugDB cannot enforce: it has no NOT NULL and only the primary key is non-null.</span></code></pre>
+<p>That SHACL file is only a promise until something runs it. shacl2cypher is that something: it compiles the generated shapes into Cypher and runs them against the live database, read-only.</p>
+<figure>
+<pre><code>             lpg-modeler-cli emit
+ social.lpg.yaml ──────────────┬──▶ social.ladybug.cypher ──▶ database (enforces what it can)
+                               └──▶ social.shacl.ttl ─────┐
+                                                          ▼
+                                        shacl2cypher validate ──▶ report + exit code
+                                          (checks the rest against live data)</code></pre>
+<figcaption>The model is the only thing you edit. The DDL creates the database; the shapes check it.</figcaption>
+</figure>
+
+<h2 id="walkthrough">Walkthrough</h2>
+<p>This uses <a href="https://volland.github.io/lpg-modeler/examples.html"><code>social.lpg.yaml</code></a>, the modeler's starter example. It has an abstract <code>Party</code> with key <code>id</code>, <code>Person</code> and <code>Company</code> extending it, a <code>Timestamped</code> mixin that adds a required <code>createdAt</code>, and the edges <code>OWNS</code>, <code>KNOWS</code> (both with a <code>since</code> property) and <code>LIKES</code>. All files are in <a href="https://github.com/Volland/shacl2cypher/tree/main/doc/examples/modeler"><code>doc/examples/modeler</code></a>.</p>
+
+<ol class="steps">
+<li>
+<h3>Generate DDL and shapes</h3>
+<pre><code>npx lpg-modeler-cli check social.lpg.yaml
+npx lpg-modeler-cli emit  social.lpg.yaml --target ladybug --target shacl --out schema</code></pre>
+<p>This writes <code>schema/social.ladybug.cypher</code> and <code>schema/social.shacl.ttl</code>. The shapes for <code>Person</code> look like this (abridged):</p>
+<pre><code>social:PersonShape a sh:NodeShape ;
+  sh:targetClass social:Person ;
+  sh:closed true ;
+  sh:ignoredProperties ( rdf:type ) ;
+  sh:property [
+    sh:path social:email ;
+    sh:datatype xsd:string ;
+    sh:maxCount 1 ;
+    sh:minCount 1 ;
+  ] ;
+  <span class="c-com"># … born, createdAt, id …</span>
+  sh:property [
+    sh:path social:knows ;
+    <span class="c-com"># (:Person)-[:KNOWS]->(:Person)</span>
+    sh:class social:Person ;
+  ] .</code></pre>
+</li>
+
+<li>
+<h3>Create the database and load data</h3>
+<p>Run the generated DDL, then load data, with a LadybugDB client. Its version must match the LadybugDB engine inside your shacl2cypher build; a file written by an older client fails to open. The sample data has two deliberate mistakes: <code>p2</code> has no email, and <code>p3</code> has no <code>createdAt</code>.</p>
+<pre><code>CREATE (:Person {id: 'p1', email: 'ann@example.org', born: date('1990-04-01'), createdAt: timestamp('2024-01-01T10:00:00+00:00')});
+CREATE (:Person {id: 'p2', born: date('1985-02-11'), createdAt: timestamp('2024-02-01T10:00:00+00:00')});
+CREATE (:Person {id: 'p3', email: 'cy@example.org'});
+<span class="c-com">// … a company, a car, and KNOWS / OWNS / LIKES edges</span></code></pre>
+</li>
+
+<li>
+<h3>Validate with the generated shapes</h3>
+<pre><code>shacl2cypher validate schema/social.shacl.ttl --ladybug social.lbug --node-key id</code></pre>
+<p>Both mistakes are found:</p>
+<pre><code>failed      Violation           1         5  PersonShape.createdAt.minCount
+            - Person id=p3: social:PersonShape violates sh:minCount on social:createdAt
+failed      Violation           1         2  PersonShape.email.minCount
+            - Person id=p2: social:PersonShape violates sh:minCount on social:email</code></pre>
+<p>But the run also prints eight schema warnings and 16 query errors:</p>
+<pre><code><span class="c-warn">warning: social.shacl.ttl:96: s2c:SchemaMismatch: social:Knows maps to label `Knows`, which the schema snapshot does not declare
+warning: social.shacl.ttl:98: s2c:SchemaMismatch: relationship type `KNOWS_SUBJECT` is not declared in the schema snapshot</span>
+…
+error       Violation           -         2  KnowsShape.knowsObject.class
+            (Query execution failed: Binder exception: Cannot bind KNOWS as a node pattern label.)
+…
+44 rules: 14 passed, 2 failed, 0 timed out, 16 errors, 0 skipped, 12 guaranteed by schema; 2 violations in 46 ms</code></pre>
+</li>
+
+<li>
+<h3>Add an overlay for edges with properties</h3>
+<p>The errors come from how RDF represents an edge that carries properties. RDF has no properties on edges, so the modeler <em>reifies</em> <code>KNOWS</code> and <code>OWNS</code> into classes (<code>social:Knows</code>, <code>social:Owns</code>) with <code>knowsSubject</code> and <code>knowsObject</code> links. That is correct for RDF, but in the property graph those classes don't exist: they are relationships. On LadybugDB, whose table names are case-insensitive, the label <code>Knows</code> even collides with the rel table <code>KNOWS</code>.</p>
+<p>shacl2cypher unions all shapes files, so you can fix this without editing generated output. Keep a small overlay next to the model:</p>
+<pre><code>@prefix sh:     &lt;http://www.w3.org/ns/shacl#&gt; .
+@prefix xsd:    &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+@prefix s2c:    &lt;https://w3id.org/shacl2cypher#&gt; .
+@prefix social: &lt;https://example.org/vocab/social#&gt; .
+
+<span class="c-com"># The generated KnowsShape and OwnsShape describe RDF reification classes.
+# In the property graph those are relationships, so switch the RDF form off...</span>
+social:KnowsShape sh:deactivated true .
+social:OwnsShape  sh:deactivated true .
+
+<span class="c-com"># ...and check the relationship properties where they actually live.</span>
+social:KnowsEdgeShape a sh:NodeShape ;
+    s2c:targetRelationship "KNOWS" ;
+    sh:property [ sh:path social:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .
+
+social:OwnsEdgeShape a sh:NodeShape ;
+    s2c:targetRelationship "OWNS" ;
+    sh:property [ sh:path social:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .
+
+<span class="c-com"># Rows name each node by its model key instead of --node-key.</span>
+social:CarShape s2c:key "vin" .</code></pre>
+<pre><code>shacl2cypher validate schema/social.shacl.ttl social.lpg-overlay.ttl --ladybug social.lbug --node-key id</code></pre>
+<pre><code>passed      Violation           0         2  KnowsEdgeShape.since.datatype
+passed      Violation           0         2  KnowsEdgeShape.since.maxCount
+skipped     Violation           -         0  KnowsShape.knowsObject.class
+            (deactivated)
+…
+failed      Violation           1         4  PersonShape.createdAt.minCount
+            - Person id=p3: social:PersonShape violates sh:minCount on social:createdAt
+failed      Violation           1         2  PersonShape.email.minCount
+            - Person id=p2: social:PersonShape violates sh:minCount on social:email
+…
+48 rules: 18 passed, 2 failed, 0 timed out, 0 errors, 16 skipped, 12 guaranteed by schema; 2 violations in 46 ms</code></pre>
+<p>No errors now, and the edge properties are checked where they live. The exit code is <code>1</code> because of the two real violations. Fix the data and it becomes <code>0</code>.</p>
+</li>
+</ol>
+
+<div class="note"><p><strong>Known caveat.</strong> The deactivated shapes still print their schema-mismatch warnings, so combining the overlay with <code>--fail-on-schema-mismatch</code> still fails compilation. Leave that flag off for modeler-generated shapes that include edges with properties.</p></div>
+
+<h2 id="mapping">What each model feature becomes</h2>
+<p>LPG Modeler's naming lines up with shacl2cypher's conventions. A node type <code>Person</code> is emitted as <code>social:Person</code>, which resolves back to <code>:Person</code>. An edge <code>OWNS</code> is emitted as the predicate <code>social:owns</code>, which resolves back to <code>OWNS</code>. Edge shapes carry <code>sh:class</code> for every endpoint type in the model, so they are recognized as relationships even without a schema snapshot.</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>In the model</th><th>Generated SHACL</th><th>What shacl2cypher does</th></tr></thead>
+  <tbody>
+    <tr><td><code>required: true</code>, keys</td><td><code>sh:minCount 1</code></td><td>Checked. This is the main gap LadybugDB leaves open.</td></tr>
+    <tr><td>non-list property</td><td><code>sh:maxCount 1</code></td><td>Checked; matters for Neo4j, where any property can hold a list.</td></tr>
+    <tr><td>property <code>type</code></td><td><code>sh:datatype</code></td><td>Guaranteed by schema on LadybugDB (no query); checked on Neo4j.</td></tr>
+    <tr><td><code>min</code>, <code>max</code>, <code>minLength</code>, <code>maxLength</code>, <code>pattern</code></td><td>ranges, lengths, <code>sh:pattern</code></td><td>Checked.</td></tr>
+    <tr><td><code>enum</code></td><td><code>sh:in ( … )</code></td><td>Checked.</td></tr>
+    <tr><td>closed types (the default)</td><td><code>sh:closed true</code></td><td>Checked: no undeclared properties or outgoing relationships.</td></tr>
+    <tr><td>edge endpoints</td><td><code>sh:class</code> on the edge path</td><td>Guaranteed by the rel table on LadybugDB; checked on Neo4j.</td></tr>
+    <tr><td>edge <code>cardinality</code></td><td><code>sh:minCount</code>/<code>sh:maxCount</code>, plus <code>sh:inversePath</code> for the source end</td><td>Checked in both directions.</td></tr>
+    <tr><td>named constraints</td><td><code>sh:lessThan</code>, <code>sh:or</code>, <code>sh:xone</code>, <code>sh:qualifiedValueShape</code></td><td>Checked.</td></tr>
+    <tr><td>raw <code>shacl:</code> fragment</td><td>spliced verbatim</td><td>Checked if it uses supported SHACL.</td></tr>
+    <tr><td>edge with properties</td><td>reified class shape</td><td>Needs the overlay above.</td></tr>
+    <tr><td><code>unique: true</code></td><td>comment only</td><td>Not checked: core SHACL cannot express uniqueness. Rely on the database's unique or key constraint.</td></tr>
+  </tbody>
+</table></div>
+<p>Two smaller details:</p>
+<ul>
+  <li><code>sh:ignoredProperties ( rdf:type )</code> is read as permission for a property named <code>type</code> and a relationship <code>TYPE</code>. That is harmless unless your nodes really have a <code>type</code> property that closure should reject.</li>
+  <li>If an edge type name isn't UPPER_SNAKE_CASE, the modeler's lowerCamel predicate may not convert back to the same relationship name. Compile with a schema snapshot and read the static diagnostics; they name any relationship type that doesn't exist.</li>
+</ul>
+
+<h2 id="neo4j">On Neo4j</h2>
+<p>The same shapes compile for Neo4j without a schema snapshot. <code>social.shacl.ttl</code> produces 44 rules, all with queries:</p>
+<pre><code>npx lpg-modeler-cli emit social.lpg.yaml --target neo4j --target shacl --out schema
+shacl2cypher compile schema/social.shacl.ttl social.lpg-overlay.ttl --dialect neo4j --node-key id -o checks
+NEO4J_PASSWORD=secret shacl2cypher validate --manifest checks/manifest.json --connect bolt://localhost:7687</code></pre>
+<p>On Neo4j, nothing is guaranteed by schema, so every datatype and endpoint rule runs as a query. That is the point on a schema-optional database: the generated constraint script covers keys and uniqueness, and the shapes cover everything else.</p>
+
+<h2 id="ci">In continuous integration</h2>
+<p>A pipeline that fails when the model is invalid, when generated artifacts drift, or when staging data breaks a rule:</p>
+<pre><code><span class="c-key">name</span>: graph-schema
+on: [push, pull_request]
+
+jobs:
+  model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npx lpg-modeler-cli check model/social.lpg.yaml
+      - run: npx lpg-modeler-cli emit model/social.lpg.yaml --target neo4j --target shacl --out schema
+      <span class="c-com"># Compile the shapes; the manifest's queries and fingerprints show in review.</span>
+      - run: cargo install --locked shacl2cypher
+      - run: shacl2cypher compile schema/social.shacl.ttl model/social.lpg-overlay.ttl --dialect neo4j --node-key id -o schema/checks
+      - run: git diff --exit-code schema
+
+  data:
+    needs: model
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo install --locked shacl2cypher --features neo4j
+      - run: shacl2cypher validate --manifest schema/checks/manifest.json --connect ${{ secrets.STAGING_BOLT_URI }} --timeout 120 --format sarif -o report.sarif
+        env:
+          NEO4J_PASSWORD: ${{ secrets.STAGING_NEO4J_PASSWORD }}
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: report.sarif }</code></pre>
+<p>The SARIF report points each violation at its line in <code>social.shacl.ttl</code>. Because that file is generated from the model, the model is where you fix the rule.</p>
+
+</article>
+</div>
+
+<section class="wrap">
+  <h2>Where to go next</h2>
+  <div class="next">
+    <a href="https://volland.github.io/lpg-modeler/model-format.html"><div class="k">LPG Modeler model format</div><div class="v">Everything a model can declare.</div></a>
+    <a href="shacl.html"><div class="k">SHACL guide</div><div class="v">Annotations and overlays in depth.</div></a>
+    <a href="../book/09-severity-ci.html"><div class="k">Severity, messages and CI</div><div class="v">Tune what fails a build.</div></a>
+  </div>
+</section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

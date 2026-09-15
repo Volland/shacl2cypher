@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bringing SHACL validation to FalkorDB — shacl2cypher</title>
+<meta name="description" content="How shacl2cypher is adding FalkorDB: why Neo4j queries cannot be reused, what a spike against FalkorDB 4.20.4 found, and the CALL-decorrelated renderer and read-only runner designed from it.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="../book/index.html">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="index.html" aria-current="page">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Articles</a>
+  <h1>Bringing SHACL validation to FalkorDB</h1>
+  <p class="lede">FalkorDB speaks Cypher, so reusing the Neo4j queries looks like it should work. It doesn't: a probe spike found constructs that return wrong answers without raising any error. This article covers what the spike found and the renderer being built around it.</p>
+  <p class="post-meta">Integration · FalkorDB 4.20.4 (C engine)</p>
+</div>
+
+<div class="wrap">
+<article class="post">
+
+<div class="note">
+  <p><strong>Status: in development.</strong> The spike is complete, and its findings are recorded in the design notes. Core dialect wiring and the renderer are being implemented. FalkorDB is <em>not</em> part of shacl2cypher 0.2.0: <code>--dialect falkordb</code> and the connection flags described below are planned, not released. Follow the <code>add-falkordb-dialect</code> change in the repository for progress.</p>
+</div>
+
+<h2>Why FalkorDB</h2>
+<p>FalkorDB is a property graph database that runs as a Redis module. It is popular for low-latency graph workloads and for GraphRAG, where a knowledge graph backs a language model. Its data model is the closest of any engine to Neo4j's: schemaless, multi-label nodes, untyped properties, and Cypher as the query language. Teams running it have had no way to validate their graphs against SHACL.</p>
+
+<h2>Why the Neo4j queries can't be reused</h2>
+<p>The Neo4j renderer leans on Neo4j 5 constructs that FalkorDB either lacks or implements differently. The spike checked each one against <code>falkordb/falkordb:v4.20.4</code>:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Construct</th><th>Neo4j 5</th><th>FalkorDB 4.20.4</th></tr></thead>
+  <tbody>
+    <tr><td><code>EXISTS { MATCH … }</code>, <code>COUNT { … }</code></td><td>Used everywhere</td><td>Parse errors</td></tr>
+    <tr><td>Type predicates</td><td><code>v IS :: STRING NOT NULL</code></td><td>No <code>IS ::</code>; <code>typeOf(v)</code> returns <code>'String'</code>, <code>'Integer'</code>, …</td></tr>
+    <tr><td>Regex</td><td><code>=~</code>, anchored Java regex</td><td>No <code>=~</code>; <code>string.matchRegEx</code> (Oniguruma) searches substrings</td></tr>
+    <tr><td>Label unions</td><td><code>n:A|B</code></td><td>Parse error; <code>WHERE n:A OR n:B</code> works</td></tr>
+    <tr><td>Element ids</td><td><code>elementId(n)</code></td><td><code>toString(id(n))</code></td></tr>
+    <tr><td>Unlimited detail rows</td><td><code>LIMIT coalesce($limit, …)</code></td><td>Rejected; <code>LIMIT $limit</code> accepts up to <code>i64::MAX</code></td></tr>
+    <tr><td>Temporal constructors</td><td><code>datetime()</code>, <code>time()</code></td><td>Absent; <code>localdatetime</code> drops offsets and fractional seconds</td></tr>
+    <tr><td>Schema introspection</td><td><code>db.schema.*</code> procedures</td><td>Only <code>db.labels()</code>, <code>db.relationshipTypes()</code> and <code>n[k]</code></td></tr>
+  </tbody>
+</table></div>
+<p>Missing features are the easy part: the database rejects the query and you notice. The hard part is what came next.</p>
+
+<h2>Spike first, because some answers are silently wrong</h2>
+<p>Before writing any renderer code, the <code>spikes/falkordb</code> project ran nine probe scripts through <code>redis-cli</code> inside the container, plus a probe of the Rust client. The scripts and their outputs are committed side by side, so a version bump can rerun them. Three findings justified the whole exercise, because each one returns a plausible, wrong result with no error:</p>
+<ol>
+  <li><strong>Pattern predicates inside <code>CASE</code> are always true.</strong> <code>(n)-[:T]->()</code> is correct directly in <code>WHERE</code>, but inside a <code>CASE</code> expression it never filters anything.</li>
+  <li><strong>Pattern comprehensions anchored at quantifier variables are wrong.</strong> A comprehension anchored at a variable bound by <code>all(x IN …)</code>, a list comprehension, <code>reduce</code> or a <code>UNION</code> in the same <code>CALL</code> returns wrong results. Nested shapes, where a test on a neighbour traverses further, need exactly that.</li>
+  <li><strong><code>MATCH</code> collapses parallel relationships.</strong> Two <code>WORKS_FOR</code> relationships between the same pair of nodes produce one row unless the relationship variable is referenced, for example with <code>WHERE id(r) &gt;= 0</code>. A <code>sh:maxCount</code> check would under-count.</li>
+</ol>
+<p>Two more findings shape every value test. <code>CASE</code> evaluates all of its branches, so a guard like <code>CASE WHEN typeOf(v) = 'String' THEN size(v) … END</code> still raises on a number. And <code>size</code>, <code>string.matchRegEx</code>, <code>keys</code>, <code>labels</code> and property access all raise on the wrong type. Only <code>toStringOrNull</code> is total.</p>
+
+<h2>The renderer: anchor every traversal at a row</h2>
+<p>The one construct that was reliable in every probe was the correlated subquery: <code>CALL { WITH x OPTIONAL MATCH … RETURN &lt;aggregate&gt; }</code>. It returns exactly one row per outer row, even with no matches, and gives correct results nested at least three levels deep. The FalkorDB renderer is built on it:</p>
+<ul>
+  <li>Every relationship route becomes a correlated <code>CALL</code> returning an aggregate column: a count, a boolean from <code>all(…)</code> over collected test results, or a distinct list for pair constraints.</li>
+  <li>Every relationship variable is referenced (<code>id(r) &gt;= 0</code>), so parallel relationships are counted. Variable-length hops bind a path variable.</li>
+  <li>Alternative paths become <code>UNION</code> branches of an inner <code>CALL</code>. A test that traverses further nests another <code>CALL</code>, so query depth follows shape depth.</li>
+  <li>The rule condition combines the columns in <code>WITH … WHERE NOT (…)</code>. The renderer never emits pattern predicates or pattern comprehensions, and a lint test enforces that.</li>
+</ul>
+<p>For <code>sh:path ex:worksFor ; sh:maxCount 1</code> the shape of a query is roughly the following. This is a sketch of the design, not compiler output:</p>
+<pre><code>MATCH (v0:Person)
+CALL {
+  WITH v0
+  OPTIONAL MATCH (v0)-[r1:WORKS_FOR]-&gt;(y1)
+  WHERE id(r1) &gt;= 0
+  RETURN count(DISTINCT y1) AS c1
+}
+WITH v0, c1
+WHERE NOT (c1 &lt;= 1)
+RETURN … , {label: 'Person', key: 'id', keyValue: toStringOrNull(v0.id), elementId: toString(id(v0))} AS focus
+LIMIT $limit</code></pre>
+
+<h3>Total value tests</h3>
+<p>Because no expression may raise for any value type, datatype tests use <code>typeOf</code>, integer ranges are <code>coalesce</code>-wrapped comparisons, and length and pattern tests run on <code>toStringOrNull(v)</code>. Node-only functions are applied only where the IR proves the value is a node.</p>
+
+<h3>Regex</h3>
+<p><code>sh:pattern</code> renders as <code>size(string.matchRegEx(toStringOrNull(v), '&lt;flags&gt;&lt;pattern&gt;')) &gt; 0</code>. Oniguruma already searches substrings, so no wrapper is needed. It supports back-references (allowed, as on Neo4j) but silently never matches <code>\x{…}</code>. The renderer therefore rewrites those escapes to <code>\uHHHH</code>, or to the literal character outside the Basic Multilingual Plane.</p>
+
+<h3>Temporal constants: refuse rather than approximate</h3>
+<p><code>date('2020-02-30')</code> rolls over to March 1. <code>localdatetime</code> drops time zones and fractions. Durations compare as total seconds, so <code>P1Y</code> equals <code>P365D</code>. A constraint like <code>sh:minInclusive "2024-01-01T00:00:00+02:00"^^xsd:dateTime</code> cannot be rendered faithfully, so it becomes a compile error naming FalkorDB:</p>
+<pre><code>xsd:duration constant P1Y is not supported on FalkorDB, which compares durations as total
+seconds (P1Y equals P365D) and cannot hold negative or fractional ones</code></pre>
+<p>Checks on the <em>type</em> of temporal values, with <code>sh:datatype</code>, still work.</p>
+
+<h2>The runner: read-only over Redis</h2>
+<ul>
+  <li><strong>Only <code>GRAPH.RO_QUERY</code>.</strong> It refuses writes. <code>GRAPH.QUERY</code> would silently create a missing graph, so the runner never sends it. It also checks that the graph exists before running anything.</li>
+  <li><strong>Timeouts are server-side.</strong> Without a <code>TIMEOUT</code> argument FalkorDB applies a 1000 ms default, which would fail real validations. The runner sends <code>--timeout</code> in milliseconds, or <code>0</code> (no limit) when none is given. The client's own response timeout doesn't interrupt a running query, so the server timeout is the only enforcement.</li>
+  <li><strong>Client quirks are handled explicitly.</strong> The Rust <code>falkordb</code> crate (0.10.3, pinned together with <code>redis</code> 1.2.2 to build on Rust 1.87) drops the first word of server errors. Timeouts are therefore recognized by the message suffix. Values are converted to JSON explicitly, including local times, which the crate decodes as seconds since 1900.</li>
+  <li><strong>Schema dump by sampling.</strong> Labels and relationship types come from <code>db.labels()</code> and <code>db.relationshipTypes()</code>. Property types come from <code>typeOf</code> over the data, mapped to the neutral snapshot types. The snapshot stays optional, as on Neo4j, because FalkorDB properties are untyped.</li>
+</ul>
+
+<h2>Planned usage</h2>
+<p>The design adds a dialect name and two connection flags. These do not work in 0.2.0:</p>
+<pre><code><span class="c-com"># planned</span>
+shacl2cypher compile shapes.ttl --dialect falkordb --node-key id -o out/
+shacl2cypher validate shapes.ttl --falkordb redis://localhost:6379 --graph social --node-key id
+shacl2cypher schema dump --falkordb redis://user:pass@localhost:6379 --graph social -o schema.json</code></pre>
+<p>Credentials can also come from <code>FALKORDB_USERNAME</code> and <code>FALKORDB_PASSWORD</code>. <code>--neo4j-labels</code> applies to FalkorDB too, since both engines have multi-label nodes. Report formats and exit codes don't change.</p>
+
+<h2>How it will be tested</h2>
+<ul>
+  <li>Every conformance and regex fixture loads into a fresh FalkorDB graph and must match the same expected violations as Neo4j and LadybugDB. Data FalkorDB cannot store, such as nulls inside lists, is restricted per fixture. Confirmed engine bugs, such as known variable-length path issues, become documented <code>known_differences</code> with issue links, never silent passes.</li>
+  <li>Literal round-trip fuzzing extends to FalkorDB. Identifiers containing a backtick are excluded: they cannot be written in FalkorDB and are a compile error.</li>
+  <li>CI pins <code>falkordb/falkordb:v4.20.4</code>. The newer Rust-rewrite engine behaves differently for regex and aggregation, and will get its own follow-up.</li>
+</ul>
+
+<h2>Out of scope for the first release</h2>
+<ul>
+  <li>TLS (<code>rediss://</code>), Redis Cluster and Sentinel. A <code>rediss://</code> URL is a clear setup error.</li>
+  <li>Python and Node.js database handles for FalkorDB. <code>compile(dialect="falkordb")</code> will work through the shared core, but opening a FalkorDB connection from the bindings comes later.</li>
+  <li>Performance parity with Neo4j. One correlated <code>CALL</code> per traversal per focus row costs more than Neo4j's <code>COUNT {}</code>. Correctness comes first, and cost classes stay the same.</li>
+</ul>
+
+<h2>The lesson</h2>
+<p>"It speaks Cypher" is a statement about syntax, not semantics. Three constructs in a mature engine returned wrong answers with no error, and a validator built on them would have reported clean data that was not clean. Probing first, committing the probes, and designing only on constructs that proved reliable is how shacl2cypher keeps its main promise: if it says your data conforms, it does.</p>
+
+</article>
+<p class="post-source">Sources: <code>openspec/changes/add-falkordb-dialect/</code> (proposal, design, tasks), <code>spikes/falkordb/probes/</code>, and the FalkorDB section of <code>lat.md/dialects.md</code>.</p>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

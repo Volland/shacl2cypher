@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9. Severity, messages and CI — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 9: SHACL severities and messages, stable rule names and fingerprints, deactivating rules, and running graph validation as a CI gate with JUnit and SARIF reports.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>9. Severity, messages and CI</h1>
+  <p class="lede">Shapes that nobody runs don't protect anything. This last chapter makes results readable, separates "must fix" from "should look at", and puts validation in the pipeline.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html" aria-current="page">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<p>Examples: <a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/09-severity.ttl"><code>09-severity.ttl</code></a>.</p>
+
+<h2>Severity</h2>
+<pre><code>sh:property [
+    s2c:name "person-name-capitalised" ;
+    sh:path ex:name ;
+    sh:pattern "^[A-Z]" ;
+    sh:severity sh:Warning ;
+    sh:message "Name {?value} should start with a capital letter" ;
+] ;
+sh:property [
+    sh:path ex:nickname ;
+    sh:maxLength 20 ;
+    sh:severity sh:Info ;
+] .</code></pre>
+<p>Every constraint has a severity: <code>sh:Violation</code> (the default), <code>sh:Warning</code> or <code>sh:Info</code>. Severity doesn't change what is checked, only how much a failure matters. <code>--fail-on</code> decides what fails a run:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th><code>--fail-on</code></th><th>Exit code 1 when a rule fails at</th></tr></thead>
+  <tbody>
+    <tr><td><code>violation</code> (default)</td><td>Violation</td></tr>
+    <tr><td><code>warning</code></td><td>Violation or Warning</td></tr>
+    <tr><td><code>info</code></td><td>any severity</td></tr>
+  </tbody>
+</table></div>
+<p>Custom severities, IRIs other than the three standard ones, count as violations.</p>
+
+<h2>Messages</h2>
+<pre><code>sh:property [
+    sh:path ex:name ;
+    sh:minCount 1 ;
+    sh:message "Person {$this} has no name" ;
+] ;</code></pre>
+<p>Without <code>sh:message</code>, rows say something like <code>ex:PersonShape violates sh:minCount on ex:name</code>. With it, you choose the wording. <code>{$this}</code> and <code>{?value}</code> are replaced at query time with the actual focus node and value.</p>
+
+<h2>Names you can rely on</h2>
+<p>Every rule has two identifiers:</p>
+<ul>
+  <li><code>ruleId</code> is structural: <code>ex:PersonShape/ex:name/sh:minCount</code>. It is derived from the shape, path and constraint, so moving shapes around or reordering a file doesn't change it.</li>
+  <li><code>name</code> is short: <code>PersonShape.name.minCount</code>. <code>s2c:name</code> replaces the shape-and-path part, so the pattern rule above is named <code>person-name-capitalised.pattern</code>.</li>
+</ul>
+<p>The manifest also records a <code>fingerprint</code> per rule, a hash of what the rule means. If someone changes a pattern but keeps the name, the fingerprint changes. Commit the manifest and the change shows up in review.</p>
+
+<h2>Switching rules off</h2>
+<pre><code>ex:LegacyShape a sh:NodeShape ;
+    sh:targetClass ex:LegacyAccount ;
+    sh:deactivated true ;
+    sh:property [ sh:path ex:migratedAt ; sh:minCount 1 ] .</code></pre>
+<p>A deactivated shape still compiles into the manifest, with <code>status: deactivated</code> and no queries, and shows as <code>skipped</code> in reports. It is visibly parked, not silently deleted. Because shapes files are unioned, you can deactivate a shape from a <em>separate</em> file without touching the original.</p>
+
+<h2>A rollout strategy</h2>
+<ol>
+  <li>Add new rules as <code>sh:Warning</code>. Validate with the default <code>--fail-on violation</code>. The pipeline stays green, and the report shows how much data breaks the rule.</li>
+  <li>Fix the data, or the rule.</li>
+  <li>Remove the severity so the rule becomes a violation and guards the graph from then on.</li>
+</ol>
+
+<h2>In the pipeline</h2>
+<p>Compile when shapes change, so the reviewed manifest is exactly what runs. Validate on a schedule, or after each data load:</p>
+<pre><code><span class="c-key">name</span>: graph-validation
+on:
+  pull_request:
+    paths: ['shapes/**']
+  schedule:
+    - cron: '0 5 * * *'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo install --locked shacl2cypher --features neo4j   <span class="c-com"># or download a release binary</span>
+      - run: shacl2cypher compile shapes/*.ttl --dialect neo4j --node-key id --strict -o checks
+      - run: git diff --exit-code checks                            <span class="c-com"># manifest committed and current</span>
+      - run: shacl2cypher validate --manifest checks/manifest.json --connect ${{ secrets.BOLT_URI }} --timeout 120 --format sarif -o report.sarif
+        env:
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: report.sarif }</code></pre>
+<p>What each piece buys you:</p>
+<ul>
+  <li><strong>Exit codes</strong>: <code>0</code> clean, <code>1</code> violations at or above <code>--fail-on</code>, <code>2</code> a setup problem, <code>3</code> a query timed out and conformance is unknown. Treat <code>3</code> as a failure: an incomplete check is not a pass.</li>
+  <li><strong>SARIF</strong> puts each violation on the line of the shapes file that declared the constraint, where code-scanning tools can show it.</li>
+  <li><strong>JUnit</strong> (<code>--format junit</code>) gives one test case per rule for test dashboards: failures for violations, errors for timeouts.</li>
+  <li><strong><code>--timeout</code></strong> bounds each query. Expensive rules, with cost classes <code>unbounded-path</code> or <code>quadratic</code>, are the ones to watch. The manifest's <code>recommendedIndexes</code> lists the label and key pairs worth indexing.</li>
+</ul>
+
+<h2>Where to go from here</h2>
+<p>You now know enough SHACL to describe almost any rule a property graph needs. For the full mapping rules and recipes, read the <a href="../guides/shacl.html">SHACL guide</a>. To generate shapes from a visual model instead of writing them by hand, see <a href="../guides/lpg-modeler.html">LPG Modeler</a>. Every option is listed in the <a href="../reference.html">reference</a>.</p>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li>Severity grades failures; <code>--fail-on</code> decides which ones break the build.</li>
+    <li><code>sh:message</code> with <code>{$this}</code>/<code>{?value}</code> makes rows readable; <code>s2c:name</code> makes names stable and meaningful.</li>
+    <li>Commit the manifest, validate with it, and publish JUnit or SARIF.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="08-compose.html"><div class="dir">← Previous</div><div class="t">8. Composing shapes</div></a>
+  <a class="next-ch" href="index.html"><div class="dir">Back to →</div><div class="t">Contents</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

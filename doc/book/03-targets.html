@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3. Targets and focus nodes — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 3: choosing what a shape applies to — class targets, class hierarchies, subjects-of and objects-of targets, and relationship targets.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>3. Targets and focus nodes</h1>
+  <p class="lede">A shape's constraints only matter once you say what they apply to. Targets pick the focus nodes: by label, by the relationships a node has, or, in shacl2cypher, by relationship type.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html" aria-current="page">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<p>The shapes for this chapter are in <a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/03-targets.ttl"><code>03-targets.ttl</code></a>.</p>
+
+<h2>Class targets: by label</h2>
+<pre><code>ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:name ; sh:minCount 1 ] .</code></pre>
+<p><code>sh:targetClass ex:Person</code> means "every node labelled <code>:Person</code>". It is the target you will use most, and it compiles to <code>MATCH (v0:`Person`)</code>.</p>
+<p>A shape can have several targets; its focus nodes are the union. A shape with no target at all does nothing on its own. It only matters when another shape refers to it, as <a href="08-compose.html">chapter 8</a> shows.</p>
+
+<h3>Implicit class targets</h3>
+<p>If a shape's IRI is also declared a class, it targets its own instances:</p>
+<pre><code>ex:Person a rdfs:Class , sh:NodeShape ;
+    sh:property [ sh:path ex:name ; sh:minCount 1 ] .</code></pre>
+
+<h2>Class hierarchies</h2>
+<pre><code>ex:Employee rdfs:subClassOf ex:Person .</code></pre>
+<p>In SHACL, every <code>ex:Employee</code> is also an <code>ex:Person</code>, so <code>PersonShape</code> checks employees too. shacl2cypher expands the hierarchy when it compiles, transitively, from the shapes files and any <code>--ontology</code> files:</p>
+<ul>
+  <li><strong>Neo4j</strong> matches <code>(v0:Person|Employee)</code> by default. If your application already puts both labels on every employee, compile with <code>--neo4j-labels inherited</code> and it matches <code>:Person</code> alone.</li>
+  <li><strong>LadybugDB</strong> stores each node in exactly one table, so the query always covers both tables.</li>
+</ul>
+<p>A cycle of <code>rdfs:subClassOf</code> statements is a compile error that lists every statement in the cycle.</p>
+
+<h2>Subjects-of and objects-of: by relationship</h2>
+<p>Sometimes the interesting nodes aren't a label but a role. "Anyone who manages someone must have a title":</p>
+<pre><code>ex:manages s2c:relationship "MANAGES" .
+
+ex:ManagerShape a sh:NodeShape ;
+    sh:targetSubjectsOf ex:manages ;
+    sh:property [ sh:path ex:title ; sh:minCount 1 ] .</code></pre>
+<p><code>sh:targetSubjectsOf ex:manages</code> selects every node that is the <em>subject</em> of <code>ex:manages</code>, the node at the start. <code>sh:targetObjectsOf</code> selects the node at the end. The generated query:</p>
+<pre><code>MATCH (v0)
+WHERE (EXISTS { MATCH (v0)-[:`MANAGES`]-&gt;() })
+WITH v0
+WHERE NOT ( … title has at least one value … )</code></pre>
+<div class="note"><p><strong>Why the annotation?</strong> On its own, <code>ex:manages</code> could name a property <code>manages</code> or a relationship <code>MANAGES</code>. With no other evidence shacl2cypher picks a property. <code>s2c:relationship</code> settles it. So would a schema snapshot that declares <code>MANAGES</code>. <a href="06-relationships.html">Chapter 6</a> covers the full rules.</p></div>
+
+<h2>Relationship targets: validating edges</h2>
+<p>RDF has no properties on relationships, so standard SHACL cannot target them. Property graphs put data there all the time. shacl2cypher adds one target for it:</p>
+<pre><code>ex:KnowsShape a sh:NodeShape ;
+    s2c:targetRelationship "KNOWS" ;
+    sh:property [ sh:path ex:since ; sh:datatype xsd:date ; sh:maxCount 1 ] .</code></pre>
+<p>Every <code>KNOWS</code> relationship becomes a focus:</p>
+<pre><code>MATCH (s0)-[v0:`KNOWS`]-&gt;(e0)
+WITH s0, v0, e0
+WHERE NOT ( … since has at most one value … )
+RETURN …, {type: type(v0), startKey: s0.`id`, endKey: e0.`id`, elementId: elementId(v0)} AS focus, …</code></pre>
+<p>Rows identify the relationship by its type and the keys of both ends. Only value constraints on plain properties apply to a relationship focus. You can't traverse onward from an edge.</p>
+
+<h2>What isn't a target</h2>
+<p><code>sh:targetNode ex:ann</code> targets one specific resource by IRI. Property graph nodes have no IRIs, so shacl2cypher rejects it at compile time.</p>
+
+<h2>Identifying focus nodes in results</h2>
+<p>Every row names its focus node. <code>--node-key id</code> says which property identifies nodes. A shape can override it:</p>
+<pre><code>ex:PersonShape s2c:key "email" .</code></pre>
+<p>The database element id is always included as well, so rows stay unambiguous even without a key.</p>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li><code>sh:targetClass</code> selects by label and includes subclasses.</li>
+    <li><code>sh:targetSubjectsOf</code> / <code>sh:targetObjectsOf</code> select nodes by the relationships they have.</li>
+    <li><code>s2c:targetRelationship</code> validates properties on relationships.</li>
+    <li>Tell shacl2cypher when a predicate is a relationship, or give it a schema snapshot.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="02-turtle.html"><div class="dir">← Previous</div><div class="t">2. Turtle and your first shape</div></a>
+  <a class="next-ch" href="04-cardinality.html"><div class="dir">Next →</div><div class="t">4. Property shapes and cardinality</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

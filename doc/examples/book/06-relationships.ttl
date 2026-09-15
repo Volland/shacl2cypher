@@ -1,0 +1,42 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix s2c: <https://w3id.org/shacl2cypher#> .
+@prefix ex:  <http://example.org/hr#> .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    # (:Person)-[:WORKS_FOR]->(:Company), exactly one.
+    sh:property [
+        sh:path ex:worksFor ;
+        sh:class ex:Company ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    # Two hops: the employer's city must be a :City.
+    sh:property [
+        sh:path ( ex:worksFor ex:locatedIn ) ;
+        sh:class ex:City ;
+    ] ;
+    # Anyone reachable down the management chain is a :Person.
+    sh:property [
+        sh:path [ sh:zeroOrMorePath ex:manages ] ;
+        sh:class ex:Person ;
+    ] ;
+    # A person can be reached by email or phone.
+    sh:property [
+        sh:path [ sh:alternativePath ( ex:email ex:phone ) ] ;
+        sh:minCount 1 ;
+    ] .
+
+ex:CompanyShape a sh:NodeShape ;
+    sh:targetClass ex:Company ;
+    # Incoming WORKS_FOR: every company has at least one employee.
+    sh:property [
+        sh:path [ sh:inversePath ex:worksFor ] ;
+        sh:minCount 1 ;
+    ] .
+
+# The predicate name and the relationship type differ: say so explicitly.
+ex:employer s2c:relationship "WORKS_FOR" .
+ex:ContractorShape a sh:NodeShape ;
+    sh:targetClass ex:Contractor ;
+    sh:property [ sh:path ex:employer ; sh:maxCount 1 ] .

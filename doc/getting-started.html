@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get started — shacl2cypher</title>
+<meta name="description" content="Install shacl2cypher, compile SHACL shapes into Cypher, and validate a Neo4j or LadybugDB database.">
+<link rel="icon" href="assets/icon.svg">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html" aria-current="page">Get started</a>
+      <a href="guides/shacl.html">SHACL guide</a>
+      <a href="guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="book/index.html">Book</a>
+      <a href="reference.html">Reference</a>
+      <a href="articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <span class="eyebrow">Guide</span>
+  <h1>From a shapes file to a validation report</h1>
+  <p class="lede">Install the CLI, write three constraints, compile them, and run them against a database. This takes about ten minutes.</p>
+</div>
+
+<section class="wrap narrow">
+  <ol class="steps">
+    <li>
+      <h3>Install</h3>
+      <p>Prebuilt binaries with both database backends are attached to every
+      <a href="https://github.com/Volland/shacl2cypher/releases">GitHub release</a>, for Linux x86_64, Linux arm64 and macOS arm64. Each tarball has a SHA-256 checksum next to it. With cargo:</p>
+<pre><code>cargo install --locked shacl2cypher                              <span class="c-com"># compile only</span>
+cargo install --locked shacl2cypher --features neo4j,ladybug     <span class="c-com"># with database backends</span></code></pre>
+      <p>The <code>ladybug</code> feature builds C++ and needs <code>cmake</code>. <code>--locked</code> installs the dependency versions the release was tested with; Rust 1.87 or newer is required.</p>
+      <p>To work from Python or Node.js instead, the packages bundle both backends:</p>
+<pre><code>pip install shacl2cypher      <span class="c-com"># CPython 3.9+</span>
+npm install shacl2cypher      <span class="c-com"># Node.js 18+</span></code></pre>
+    </li>
+
+    <li>
+      <h3>Write a shapes file</h3>
+      <p>Save this as <code>shapes.ttl</code>. It says that every <code>:Person</code> needs a name, that a name should start with a capital letter (a warning, not an error), and that a person works for at most one company.</p>
+<pre><code>@prefix sh:  &lt;http://www.w3.org/ns/shacl#&gt; .
+@prefix ex:  &lt;http://example.org/&gt; .
+
+ex:PersonShape sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:name ; sh:minCount 1 ; sh:message "Person needs a name" ] ,
+                [ sh:path ex:name ; sh:pattern "^[A-Z]" ; sh:severity sh:Warning ] ,
+                [ sh:path ex:worksFor ; sh:maxCount 1 ] .</code></pre>
+      <p>By convention <code>ex:Person</code> becomes the label <code>:Person</code> and <code>ex:name</code> becomes the property <code>name</code>. <code>ex:worksFor</code> becomes the relationship type <code>WORKS_FOR</code> when a schema snapshot declares that type and no <code>worksFor</code> property. The <a href="guides/shacl.html">SHACL guide</a> covers the full rules.</p>
+    </li>
+
+    <li>
+      <h3>Compile</h3>
+<pre><code>shacl2cypher compile shapes.ttl --dialect neo4j --node-key id -o out/</code></pre>
+      <p>This writes two files:</p>
+      <ul class="plain">
+        <li><code>out/manifest.json</code>: the primary artifact. It records provenance (compiler version, options, the SHA-256 of each input) and one entry per rule, with its id, severity, status, cost class, source line and queries.</li>
+        <li><code>out/queries.cypher</code>: the same queries for people. Each is headed by <code>// name: &lt;name&gt;</code> (summaries by <code>#summary</code>), so you can paste them into any Cypher client. They take two parameters, <code>$limit</code> and <code>$sampleSize</code>.</li>
+      </ul>
+      <p><code>--node-key id</code> names the property that identifies nodes in result rows. A shape can override it with <code>s2c:key</code>.</p>
+    </li>
+
+    <li>
+      <h3>Validate a database</h3>
+      <p><strong>Neo4j.</strong> Every query runs in a transaction that is always rolled back.</p>
+<pre><code>NEO4J_PASSWORD=secret shacl2cypher validate shapes.ttl \
+    --connect bolt://localhost:7687 --node-key id</code></pre>
+      <p><strong>LadybugDB.</strong> The file is opened read-only, and the schema is read from it before compiling.</p>
+<pre><code>shacl2cypher validate shapes.ttl --ladybug ./graph.lbug --node-key id</code></pre>
+      <p>You get the table shown on the <a href="index.html">overview</a>: one line per rule, up to ten violations each, and a totals line. The exit code is <code>0</code> when nothing at or above <code>--fail-on</code> (default <code>violation</code>) failed, <code>1</code> when something did, <code>2</code> for setup errors and <code>3</code> when a query timed out and the result is incomplete.</p>
+    </li>
+
+    <li>
+      <h3>Pick a report format</h3>
+<pre><code>shacl2cypher validate shapes.ttl --ladybug graph.lbug --node-key id --format json  -o report.json
+shacl2cypher validate shapes.ttl --ladybug graph.lbug --node-key id --format junit -o junit.xml
+shacl2cypher validate shapes.ttl --ladybug graph.lbug --node-key id --format sarif -o report.sarif</code></pre>
+      <p>Useful options: <code>--timeout &lt;seconds&gt;</code> per query, <code>--limit</code> for violations listed per rule (<code>0</code> lists all), <code>--fail-on violation|warning|info</code>, and <code>--verbose</code> to include every focus property in rows.</p>
+    </li>
+
+    <li>
+      <h3>Compile once, validate many times</h3>
+      <p>For LadybugDB, compiling ahead of time needs a schema snapshot, because its tables are typed:</p>
+<pre><code>shacl2cypher schema dump --ladybug ./graph.lbug -o schema.json
+shacl2cypher compile shapes.ttl --dialect ladybug --schema schema.json --node-key id -o out/</code></pre>
+      <p>Commit the manifest, review query changes in pull requests, and run it later:</p>
+<pre><code>shacl2cypher validate --manifest out/manifest.json --ladybug ./graph.lbug --format junit -o junit.xml</code></pre>
+      <p>A manifest compiled for one dialect is rejected when run against another database.</p>
+    </li>
+  </ol>
+
+  <h2>From Python</h2>
+<pre><code>import shacl2cypher
+
+compilation = shacl2cypher.compile(["shapes.ttl"], dialect="neo4j", node_key="id")
+compilation.write("out")                        <span class="c-com"># manifest.json and queries.cypher</span>
+
+with shacl2cypher.Ladybug("graph.lbug") as db:  <span class="c-com"># or shacl2cypher.Neo4j("bolt://localhost:7687", password="...")</span>
+    report = db.validate(["shapes.ttl"], node_key="id", timeout=30)
+    print(report.render("table"))               <span class="c-com"># also "json", "junit", "sarif"</span>
+    raise SystemExit(report.exit_code("violation"))</code></pre>
+  <p>Shapes can be paths or in-memory <code>shacl2cypher.Source(name, text)</code> documents. Errors derive from <code>Shacl2CypherError</code>. Calls release the GIL.</p>
+
+  <h2>From TypeScript</h2>
+<pre><code>import { compile, Ladybug, renderReport, exitCode } from 'shacl2cypher';
+
+const compilation = await compile({ shapes: ['shapes.ttl'], dialect: 'neo4j', nodeKey: 'id' });
+compilation.write('out');
+
+const db = await Ladybug.open('graph.lbug');   <span class="c-com">// or await Neo4j.connect({ uri: 'bolt://localhost:7687', password: '...' })</span>
+try {
+  const report = await db.validate({ shapes: ['shapes.ttl'], nodeKey: 'id', timeoutMs: 30_000 });
+  console.log(renderReport(report, 'table'));
+  process.exitCode = exitCode(report, 'violation');
+} finally {
+  await db.close();
+}</code></pre>
+  <p>Calls return Promises and never block the event loop. Unknown option keys throw <code>TypeError</code>. Types ship in <code>index.d.ts</code>.</p>
+</section>
+
+<section class="wrap">
+  <h2>Where to go next</h2>
+  <div class="next">
+    <a href="guides/shacl.html"><div class="k">SHACL guide</div><div class="v">Mapping rules, annotations, schema snapshots and recipes.</div></a>
+    <a href="book/index.html"><div class="k">The book</div><div class="v">New to SHACL? Start with chapter one.</div></a>
+    <a href="reference.html"><div class="k">Reference</div><div class="v">Every option, field, row column and exit code.</div></a>
+  </div>
+</section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/releases">Releases</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

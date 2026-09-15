@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. Composing shapes — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 8: reusable shapes with sh:node, logical constraints sh:and, sh:or, sh:not and sh:xone, qualified counts, and explained nested failures.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>8. Composing shapes</h1>
+  <p class="lede">Real rules come in combinations: "this or that", "never this", "the address must itself be valid", "at least one member is a manager". SHACL composes shapes out of other shapes, and shacl2cypher tells you which part of the combination failed.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html" aria-current="page">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<p>Examples: <a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/08-compose.ttl"><code>08-compose.ttl</code></a>.</p>
+
+<h2>Reusable shapes with <code>sh:node</code></h2>
+<pre><code><span class="c-com"># A reusable shape with no target: it only matters where another shape uses it.</span>
+ex:AddressShape a sh:NodeShape ;
+    sh:property [ sh:path ex:street ; sh:minCount 1 ] ;
+    sh:property [ sh:path ex:zip ; sh:minCount 1 ; sh:pattern "^[0-9]{5}$" ] .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:livesAt ; sh:node ex:AddressShape ] .</code></pre>
+<p><code>AddressShape</code> has no target, so on its own it checks nothing. <code>sh:node ex:AddressShape</code> says: every node a person <code>LIVES_AT</code> must conform to it. Define the rules for an address once and use them wherever an address appears.</p>
+
+<h3>Which part failed?</h3>
+<p>A standard SHACL report would only say "this address violates <code>sh:node</code>". shacl2cypher inlines the inner shape's constraints into the query and also computes which ones failed. The row's <code>details</code> column lists them:</p>
+<pre><code>// name: PersonShape.livesAt.node
+MATCH (v0:`Person`)
+MATCH (v0)-[:`LIVES_AT`]-&gt;(v1)
+WITH DISTINCT v0, v1
+WHERE NOT ( … street, zip and pattern all hold for v1 … )
+RETURN …, [x11 IN [
+    CASE WHEN … street missing … THEN 'ex:AddressShape/ex:street/sh:minCount' END,
+    CASE WHEN … zip missing …    THEN 'ex:AddressShape/ex:zip/sh:minCount' END,
+    CASE WHEN … zip pattern …    THEN 'ex:AddressShape/ex:zip/sh:pattern' END
+  ] WHERE x11 IS NOT NULL] AS details</code></pre>
+<p>So a row reads: person <code>p7</code>, value address <code>a3</code>, details <code>["ex:AddressShape/ex:zip/sh:pattern"]</code>. You know it was the zip code without rerunning anything.</p>
+
+<h2>Logical constraints</h2>
+<pre><code>ex:PersonShape
+    <span class="c-com"># At least one way to reach them.</span>
+    sh:or (
+        [ sh:path ex:email ; sh:minCount 1 ]
+        [ sh:path ex:phone ; sh:minCount 1 ]
+    ) ;
+    <span class="c-com"># A person is never also flagged as a bot.</span>
+    sh:not [ sh:path ex:isBot ; sh:hasValue true ] .</code></pre>
+<div class="table-scroll"><table>
+  <thead><tr><th>Constraint</th><th>The focus node conforms when</th></tr></thead>
+  <tbody>
+    <tr><td><code>sh:and ( A B … )</code></td><td>it conforms to every listed shape</td></tr>
+    <tr><td><code>sh:or ( A B … )</code></td><td>it conforms to at least one</td></tr>
+    <tr><td><code>sh:xone ( A B … )</code></td><td>it conforms to exactly one</td></tr>
+    <tr><td><code>sh:not A</code></td><td>it does not conform to <code>A</code></td></tr>
+  </tbody>
+</table></div>
+<p>The listed shapes are usually anonymous <code>[ … ]</code> shapes, as above. For a blank branch, <code>details</code> extends the outer rule id with its position, e.g. <code>ex:PersonShape/sh:or[0]/ex:email/sh:minCount</code>.</p>
+
+<h3>Exactly one</h3>
+<pre><code>ex:TeamShape a sh:NodeShape ;
+    sh:targetClass ex:Team ;
+    sh:xone (
+        [ sh:path ex:lead ; sh:nodeKind sh:IRI ; sh:minCount 1 ]
+        [ sh:path ex:sponsor ; sh:nodeKind sh:IRI ; sh:minCount 1 ]
+    ) .</code></pre>
+<p>A team has an internal lead or an external sponsor, never both and never neither. <code>sh:nodeKind sh:IRI</code> says the values are nodes, so <code>lead</code> and <code>sponsor</code> are relationships (<a href="06-relationships.html">chapter 6</a>).</p>
+
+<h2>Qualified counts</h2>
+<p><code>sh:minCount</code> counts all values. Sometimes you want to count only the values that match a shape:</p>
+<pre><code>sh:property [
+    sh:path ex:member ;
+    sh:nodeKind sh:IRI ;
+    sh:qualifiedValueShape [ sh:class ex:Manager ] ;
+    sh:qualifiedMinCount 1 ;
+    sh:qualifiedMaxCount 2 ;
+] .</code></pre>
+<p>"Among a team's members, between one and two are managers." For Neo4j this becomes a counting subquery over distinct neighbours:</p>
+<pre><code>// name: TeamShape.member.qualifiedMinCount
+MATCH (v0:`Team`)
+WITH v0
+WHERE NOT (COUNT { MATCH (v0)-[:`MEMBER`]-&gt;(x1) WHERE (x1:`Manager`) RETURN DISTINCT x1 } &gt;= 1)</code></pre>
+<p>Add <code>sh:qualifiedValueShapesDisjoint true</code> when sibling property shapes each count a different kind of neighbour, and one node shouldn't count for both.</p>
+
+<h2>What you can't compose</h2>
+<p>Because inner shapes are inlined into the query, a shape can't reach itself, for example <code>ex:PersonShape</code> using <code>sh:node ex:PersonShape</code> for <code>ex:manager</code>. Recursive shapes are a compile error that shows the shortest cycle with a location for each step. Property shapes nested directly inside other property shapes are not supported yet.</p>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li><code>sh:node</code> reuses a shape; shapes without targets exist to be reused.</li>
+    <li><code>sh:and</code>, <code>sh:or</code>, <code>sh:xone</code> and <code>sh:not</code> combine shapes logically.</li>
+    <li><code>sh:qualifiedValueShape</code> counts only the neighbours that match.</li>
+    <li>Rows for nested shapes carry <code>details</code>: the inner rules that actually failed.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="07-compare-closed.html"><div class="dir">← Previous</div><div class="t">7. Comparing properties and closing shapes</div></a>
+  <a class="next-ch" href="09-severity-ci.html"><div class="dir">Next →</div><div class="t">9. Severity, messages and CI</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

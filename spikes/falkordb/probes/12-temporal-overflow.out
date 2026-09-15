@@ -1,0 +1,64 @@
+
+>> RETURN date('1950-01-01') < date('2020-01-01') AS y70neg, date('1971-01-01') < date('2045-01-01') AS y74pos, date('1971-01-01') < date('2030-01-01') AS y59pos, date('2000-01-01') < date('2068-01-01') AS y68, date('2000-01-01') < date('2068-02-01') AS y68m1
+y70neg
+y74pos
+y59pos
+y68
+y68m1
+false
+false
+true
+true
+false
+
+>> RETURN date('2020-01-01') > date('1950-01-01') AS gt, date('1950-01-01') <= date('2020-01-01') AS le, date('2020-01-01') >= date('1950-01-01') AS ge, date('1900-01-01') = date('2000-01-01') AS eq, date('1900-01-01') <> date('2000-01-01') AS ne
+gt
+le
+ge
+eq
+ne
+false
+false
+false
+false
+true
+
+>> RETURN localdatetime('1950-01-01T00:00:00') < localdatetime('2020-01-01T00:00:00') AS ldt, localtime('00:00:01') < localtime('23:59:59') AS lt
+ldt
+lt
+false
+true
+
+>> RETURN toString(date('0005-03-04')) AS d5, toString(date('0999-12-31')) AS d999, toString(date('9999-12-31')) AS d9999, toString(localdatetime('0999-01-01T09:05:00')) AS ldt999, toString(localtime('09:05:00')) AS lt
+d5
+d999
+d9999
+ldt999
+lt
+5-03-04
+999-12-31
+9999-12-31
+999-01-01T09:05:00
+09:05:00
+
+>> RETURN toString(date('1900-01-01')) < toString(date('2020-12-31')) AS a, toString(date('2000-01-01')) > '1900-01-01' AS b, toString(date('0999-12-31')) < toString(date('1000-01-01')) AS c, toString(localdatetime('1950-01-01T10:00:00')) < '2020-01-01T09:00:00' AS d
+a
+b
+c
+d
+true
+true
+false
+true
+
+>> RETURN typeOf(date('2000-01-01')) = 'Date' AND coalesce(toStringOrNull(date('2000-01-01')) > '1900-01-01', false) AS guarded, typeOf('3000-01-01') = 'Date' AND coalesce(toStringOrNull('3000-01-01') > '1900-01-01', false) AS stringValue
+guarded
+stringValue
+true
+false
+
+>> RETURN duration('P100Y') > duration('P1D') AS big, duration('P10Y') > duration('P1D') AS small
+big
+small
+false
+true

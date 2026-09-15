@@ -1,0 +1,325 @@
+
+==== # expected: outgoing KNOWS for a, b; not c
+
+==== # pattern predicates outside plain WHERE
+
+>> MATCH (n:Person) RETURN n.id, CASE WHEN (n)-[:KNOWS]->() THEN 1 ELSE 0 END AS c ORDER BY n.id
+n.id
+c
+a
+1
+b
+1
+c
+1
+
+>> MATCH (n:Person) RETURN n.id, (n)-[:KNOWS]->() AS p ORDER BY n.id
+n.id
+p
+a
+[[(0), [1], (1)], [(0), [0], (1)], [(0), [2], (2)]]
+b
+[[(1), [3], (2)]]
+c
+[]
+
+>> MATCH (n:Person) WITH n, (n)-[:KNOWS]->() AS p RETURN n.id, p ORDER BY n.id
+n.id
+p
+a
+[[(0), [1], (1)], [(0), [0], (1)], [(0), [2], (2)]]
+b
+[[(1), [3], (2)]]
+c
+[]
+
+>> MATCH (n:Person) WITH n WHERE (n)-[:KNOWS]->() RETURN n.id ORDER BY n.id
+n.id
+a
+b
+
+>> MATCH (n:Person) WHERE NOT ((n)-[:KNOWS]->() AND n.id <> 'zz') RETURN n.id ORDER BY n.id
+n.id
+c
+
+>> MATCH (n:Person) WHERE NOT (NOT (n)-[:KNOWS]->() OR n.id = 'b') RETURN n.id ORDER BY n.id
+n.id
+a
+
+>> MATCH (n:Person) WHERE ((n)-[:KNOWS]->() AND NOT (n)<-[:KNOWS]-()) OR n.id = 'c' RETURN n.id ORDER BY n.id
+n.id
+a
+c
+
+>> MATCH (n:Person) WHERE (n)-[:KNOWS*2..2]->(:Employee) RETURN n.id ORDER BY n.id
+n.id
+a
+
+>> MATCH (n:Person) WHERE (n)-[:KNOWS]->({name: 'Cy'}) RETURN n.id ORDER BY n.id
+n.id
+a
+b
+
+>> MATCH (n:Person) RETURN n.id, size([(n)-[:KNOWS]->() | 1]) > 0 AS p ORDER BY n.id
+n.id
+p
+a
+true
+b
+true
+c
+false
+
+>> MATCH (n:Person) RETURN n.id, CASE WHEN size([(n)-[:KNOWS]->() | 1]) > 0 THEN 1 ELSE 0 END AS c ORDER BY n.id
+n.id
+c
+a
+1
+b
+1
+c
+0
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[:KNOWS]->(y) | 1] AS l ORDER BY n.id
+n.id
+l
+a
+[1, 1, 1]
+b
+[1]
+c
+[]
+
+==== # quantifier replacements over pattern comprehensions
+
+>> MATCH (n:Person) WITH n, [(n)-[:KNOWS]->(y) | y] AS ys WHERE any(y IN ys WHERE y.name = 'Cy') RETURN n.id ORDER BY n.id
+n.id
+a
+b
+
+>> MATCH (n:Person) RETURN n.id, any(y IN [(n)-[:KNOWS]->(y) | y] WHERE y.name = 'Cy') AS p ORDER BY n.id
+n.id
+p
+a
+true
+b
+true
+c
+false
+
+>> MATCH (n:Person) RETURN n.id, any(z IN [(n)-[:KNOWS]->(y) | y] WHERE z.name = 'Cy') AS p ORDER BY n.id
+n.id
+p
+a
+true
+b
+true
+c
+false
+
+>> MATCH (n:Person) WHERE any(z IN [(n)-[:KNOWS]->(y) | y] WHERE z.name = 'Cy') RETURN n.id ORDER BY n.id
+Unable to resolve filtered alias '[(n)-[:KNOWS]->(y) | y]'
+
+
+>> MATCH (n:Person) RETURN n.id, size([(n)-[:KNOWS]->(y) WHERE y.name = 'Cy' | 1]) > 0 AS p ORDER BY n.id
+n.id
+p
+a
+true
+b
+true
+c
+false
+
+>> MATCH (n:Person) RETURN n.id, size([(n)-[:KNOWS]->(y) WHERE NOT (size([(y)-[:KNOWS]->(z) | 1]) > 0) | 1]) = 0 AS allHaveOut ORDER BY n.id
+Unable to resolve filtered alias '[(y)-[:KNOWS]->(z) | 1]'
+
+
+>> MATCH (n:Person) RETURN n.id, size([(n)-[:KNOWS]->(y) WHERE size([(y)-[:KNOWS]->(z) WHERE size([(z)-[:WORKS_FOR]->(w) WHERE w.id = 'x' | 1]) > 0 | 1]) > 0 | 1]) > 0 AS deep ORDER BY n.id
+Unable to resolve filtered alias 'w'
+
+
+>> MATCH (n:Person) RETURN n.id, [x IN [(n)-[:KNOWS]->(y) | y] WHERE x.name = 'Cy' | x.id] AS l ORDER BY n.id
+n.id
+l
+a
+[c]
+b
+[c]
+c
+[]
+
+>> MATCH (n:Person) RETURN n.id, all(x IN [(n)-[:KNOWS]->(y) | y.name] WHERE x IS NOT NULL) AS p ORDER BY n.id
+n.id
+p
+a
+true
+b
+true
+c
+true
+
+>> MATCH (n:Person) RETURN n.id, any(x IN [(n)-[:KNOWS]->(y) | y.name] WHERE x = 'Cy') AS p ORDER BY n.id
+n.id
+p
+a
+true
+b
+true
+c
+false
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[:KNOWS]->(y) WHERE any(k IN keys(y) WHERE k = 'name') | y.id] AS l ORDER BY n.id
+n.id
+l
+a
+[c]
+b
+[c]
+c
+[]
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[:KNOWS]->(y) WHERE (y)-[:WORKS_FOR]->() | y.id] AS l ORDER BY n.id
+Type mismatch: expected Null but was Pointer
+
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[:KNOWS]->(y) WHERE y <> n | id(y)] AS l ORDER BY n.id
+n.id
+l
+a
+[1, 1, 2]
+b
+[2]
+c
+[]
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[:KNOWS]->(y) WHERE y.id IN [(n)-[:KNOWS]->(z) | z.id] | y.id] AS l ORDER BY n.id
+Unable to resolve filtered alias '[(n)-[:KNOWS]->(z) | z.id]'
+
+
+==== # relationship values in comprehensions
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[r:KNOWS]->(y) | r] AS rs ORDER BY n.id
+n.id
+rs
+a
+[[1], [0], [2]]
+b
+[[3]]
+c
+[]
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[r:KNOWS]->(y) | r.w] AS ws, [(n)-[r:KNOWS]->(y) | type(r)] AS ts ORDER BY n.id
+n.id
+ws
+ts
+a
+[2, 1]
+[]
+b
+[]
+[]
+c
+[]
+[]
+
+>> MATCH (n:Person) RETURN n.id, [(n)-[r:KNOWS]->(y) | [r]] AS rs ORDER BY n.id
+n.id
+rs
+a
+[[[1]], [[0]], [[2]]]
+b
+[[[3]]]
+c
+[]
+
+==== # relationship-variable collapsing in aggregates and summaries
+
+>> MATCH (s)-[v0:KNOWS]->(e) WHERE id(v0) >= 0 RETURN count(v0), collect(toString(id(v0)))[0..5]
+count(v0)
+collect(toString(id(v0)))[0..5]
+4
+[1, 0, 2, 3]
+
+>> MATCH (s)-[v0:KNOWS]->(e) RETURN count(v0)
+count(v0)
+4
+
+>> MATCH (s)-[v0:KNOWS]->(e) WITH s, v0, e RETURN count(*)
+count(*)
+4
+
+>> MATCH (s)-[v0:KNOWS]->(e) WITH v0 WHERE v0.w IS NULL RETURN count(v0)
+count(v0)
+2
+
+>> MATCH (n:Person {id: 'a'})-[:KNOWS]->(y) RETURN count(DISTINCT id(y)), count(id(y))
+count(DISTINCT id(y))
+count(id(y))
+2
+2
+
+>> MATCH (n:Person {id: 'a'}) OPTIONAL MATCH (n)-[r:KNOWS]->(y) RETURN count(r), count(DISTINCT y)
+count(r)
+count(DISTINCT y)
+3
+2
+
+>> MATCH (n:Person {id: 'a'}) OPTIONAL MATCH (n)-[r:KNOWS]->(y) WHERE id(r) >= 0 RETURN count(r), count(DISTINCT y)
+count(r)
+count(DISTINCT y)
+3
+2
+
+>> MATCH (n:Person {id: 'a'}) MATCH (n)-[:KNOWS]->(y) RETURN y.id ORDER BY y.id
+y.id
+b
+c
+
+>> MATCH (n:Person {id: 'a'}) MATCH (n)-[r:KNOWS]->(y) WHERE id(r) >= 0 RETURN y.id ORDER BY y.id
+y.id
+b
+b
+c
+
+>> MATCH (n:Person {id: 'a'}) MATCH (n)-[r:KNOWS*1..1]->(y) RETURN y.id ORDER BY y.id
+y.id
+b
+c
+
+==== # property-value distinct counts and lists
+
+>> MATCH (n:Person) RETURN n.id, size(reduce(acc = [], x IN CASE typeOf(n.name) WHEN 'Null' THEN [] WHEN 'List' THEN n.name ELSE [n.name] END | CASE WHEN x IN acc THEN acc ELSE acc + [x] END)) ORDER BY n.id
+n.id
+size(reduce(acc = [], x IN CASE typeOf(n.name) WHEN 'Null' THEN [] WHEN 'List' THEN n.name ELSE [n.name] END | CASE WHEN x IN acc THEN acc ELSE acc + [x] END))
+a
+1
+b
+0
+c
+1
+
+>> RETURN reduce(acc = [], x IN [1, 1.0, '1', date('2020-01-01'), date('2020-01-01')] | CASE WHEN x IN acc THEN acc ELSE acc + [x] END)
+reduce(acc = [], x IN [1, 1.0, '1', date('2020-01-01'), date('2020-01-01')] | CASE WHEN x IN acc THEN acc ELSE acc + [x] END)
+[1, 1, 2020-01-01]
+
+==== # TIMEOUT semantics
+
+>> GRAPH.RO_QUERY probe2 "UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x)" TIMEOUT 0
+count(x)
+2857142
+
+>> GRAPH.RO_QUERY probe2 "UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x)" TIMEOUT 600000
+count(x)
+2857142
+
+>> GRAPH.RO_QUERY probe2 "UNWIND range(1, 20000000) AS x WITH x WHERE x % 7 = 0 RETURN count(x)" TIMEOUT 9223372036854775807
+count(x)
+2857142
+
+>> GRAPH.RO_QUERY probe2 "RETURN 1" TIMEOUT -1
+Failed to parse query timeout value
+
+
+>> GRAPH.RO_QUERY probe2 "CYPHER limit=0 MATCH (n) RETURN n.id LIMIT $limit"
+probes/04-predicates-quantifiers-timeouts.sh: line 19: limit: unbound variable

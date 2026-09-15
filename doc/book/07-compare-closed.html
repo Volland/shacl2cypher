@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7. Comparing properties and closing shapes — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 7: SHACL property pair constraints (sh:lessThan, sh:equals, sh:disjoint) and closed shapes that forbid undeclared properties and relationships.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>7. Comparing properties and closing shapes</h1>
+  <p class="lede">Some rules involve two properties at once: a start before an end, a login equal to an email. Others are about everything a shape didn't mention. SHACL has a constraint for each.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html" aria-current="page">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<p>Examples: <a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/07-compare-closed.ttl"><code>07-compare-closed.ttl</code></a>.</p>
+
+<h2>Property pairs</h2>
+<p>Four constraints compare the values of the property shape's path with the values of a second property on the same focus node:</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Constraint</th><th>Holds when</th></tr></thead>
+  <tbody>
+    <tr><td><code>sh:lessThan ex:p</code></td><td>every value of the path is less than every value of <code>p</code></td></tr>
+    <tr><td><code>sh:lessThanOrEquals ex:p</code></td><td>every value is less than or equal to every value of <code>p</code></td></tr>
+    <tr><td><code>sh:equals ex:p</code></td><td>the two value sets are identical</td></tr>
+    <tr><td><code>sh:disjoint ex:p</code></td><td>the two value sets share no value</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Start before end</h3>
+<pre><code>ex:ProjectShape a sh:NodeShape ;
+    sh:targetClass ex:Project ;
+    sh:property [ sh:path ex:startDate ; sh:lessThan ex:endDate ] .</code></pre>
+<p>If either date is missing there is nothing to compare, and the rule passes; add <code>sh:minCount</code> if both are required. Values that can't be compared, such as a date against a string, are violations.</p>
+
+<h3>Equal and disjoint</h3>
+<pre><code>ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    sh:property [ sh:path ex:email ; sh:disjoint ex:backupEmail ] ;
+    sh:property [ sh:path ex:login ; sh:equals ex:email ] .</code></pre>
+<p>Pair constraints report once per focus node. When the path is a relationship, they compare the nodes reached, and the rule gets the cost class <code>quadratic</code>, because every value is compared with every other.</p>
+
+<h2>Closed shapes</h2>
+<p>Everything so far says what <em>must</em> be there. A closed shape also says what must <em>not</em>: nothing beyond what the shape declares.</p>
+<pre><code>ex:AddressShape a sh:NodeShape ;
+    sh:targetClass ex:Address ;
+    sh:closed true ;
+    sh:ignoredProperties ( ex:createdAt ) ;
+    sh:property [ sh:path ex:street ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path ex:zip ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path ex:inCity ; sh:class ex:City ] .</code></pre>
+<p>An <code>:Address</code> may have the properties <code>street</code>, <code>zip</code> and <code>createdAt</code>, the outgoing relationship <code>IN_CITY</code>, and the node key. Anything else is a violation, for example a stray <code>street_name</code> left over from an old import.</p>
+<p>What the query actually checks is easiest to see in a real one. LPG Modeler closes every node type by default, and for its <code>Car</code> shape shacl2cypher generates:</p>
+<pre><code>// name: CarShape.closed
+MATCH (v0:`Car`)
+WITH v0
+WHERE NOT ((all(x1 IN keys(v0) WHERE x1 IN ['id', 'seats', 'type', 'vin'])
+       AND all(x2 IN [(v0)-[x3]-&gt;() | type(x3)] WHERE x2 IN ['TYPE'])))</code></pre>
+<p>The allowed property keys are the shape's own (<code>seats</code>, <code>vin</code>), the node key (<code>id</code>), and whatever <code>sh:ignoredProperties</code> lists. That model ignores <code>rdf:type</code>, which maps to the property <code>type</code> and the relationship <code>TYPE</code>. The allowed outgoing relationship types come from the same lists.</p>
+
+<h3>How closure differs on a property graph</h3>
+<ul>
+  <li>In RDF, <code>sh:closed</code> is about predicates. Here it covers both <strong>property keys</strong> and <strong>outgoing relationship types</strong>.</li>
+  <li><strong>Incoming</strong> relationships are never constrained. Another node pointing at an address doesn't make the address invalid.</li>
+  <li>The <strong>node key</strong> is always allowed, even if no shape mentions it.</li>
+  <li>Only simple predicate paths count as declared. A property reached only through a sequence or an inverse path doesn't open the shape.</li>
+  <li>On LadybugDB, where every column exists on every row, closure means undeclared columns must be <code>NULL</code>.</li>
+</ul>
+
+<div class="try">
+  <div class="k">Try it</div>
+  <p>Close <code>PersonShape</code> from <a href="04-cardinality.html">chapter 4</a> and compile. How many properties does a real <code>:Person</code> in your graph have that the shape never mentioned? Closed shapes are an excellent way to find out.</p>
+</div>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li><code>sh:lessThan</code>, <code>sh:lessThanOrEquals</code>, <code>sh:equals</code> and <code>sh:disjoint</code> relate two properties on one focus node.</li>
+    <li><code>sh:closed true</code> rejects undeclared properties and outgoing relationships; <code>sh:ignoredProperties</code> makes exceptions.</li>
+    <li>Incoming relationships and the node key are always allowed.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="06-relationships.html"><div class="dir">← Previous</div><div class="t">6. Relationships and paths</div></a>
+  <a class="next-ch" href="08-compose.html"><div class="dir">Next →</div><div class="t">8. Composing shapes</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

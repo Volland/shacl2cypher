@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4. Property shapes and cardinality — Shapes for Property Graphs</title>
+<meta name="description" content="Chapter 4: required, optional, single- and multi-valued properties with sh:minCount and sh:maxCount, and how nulls, lists and absent values are counted.">
+<link rel="icon" href="../assets/icon.svg">
+<link rel="stylesheet" href="../assets/fonts.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><img src="../assets/icon.svg" alt=""> shacl2cypher</a>
+    <nav class="links">
+      <a href="../index.html">Overview</a>
+      <a href="../getting-started.html">Get started</a>
+      <a href="../guides/shacl.html">SHACL guide</a>
+      <a href="../guides/lpg-modeler.html">With LPG Modeler</a>
+      <a href="index.html" aria-current="page">Book</a>
+      <a href="../reference.html">Reference</a>
+      <a href="../articles/index.html">Articles</a>
+      <a href="https://github.com/Volland/shacl2cypher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap post-head">
+  <a class="back" href="index.html">← Shapes for Property Graphs</a>
+  <h1>4. Property shapes and cardinality</h1>
+  <p class="lede">Is this property required? Can it have more than one value? Two constraints answer both questions. What needs care is what counts as a value.</p>
+</div>
+
+<div class="wrap book-layout">
+<aside class="toc">
+  <p class="k">Chapters</p>
+  <ol>
+    <li class="intro"><a href="index.html">Introduction</a></li>
+    <li><a href="01-why.html">Why shapes for a property graph</a></li>
+    <li><a href="02-turtle.html">Turtle and your first shape</a></li>
+    <li><a href="03-targets.html">Targets and focus nodes</a></li>
+    <li><a href="04-cardinality.html" aria-current="page">Property shapes and cardinality</a></li>
+    <li><a href="05-values.html">Constraining values</a></li>
+    <li><a href="06-relationships.html">Relationships and paths</a></li>
+    <li><a href="07-compare-closed.html">Comparing properties and closing shapes</a></li>
+    <li><a href="08-compose.html">Composing shapes</a></li>
+    <li><a href="09-severity-ci.html">Severity, messages and CI</a></li>
+  </ol>
+</aside>
+<div>
+<article class="post">
+
+<h2>Four patterns</h2>
+<p><a href="https://github.com/Volland/shacl2cypher/blob/main/doc/examples/book/04-cardinality.ttl"><code>04-cardinality.ttl</code></a>:</p>
+<pre><code>ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    <span class="c-com"># Required and single-valued.</span>
+    sh:property [ sh:path ex:name ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    <span class="c-com"># Optional, but at most one value.</span>
+    sh:property [ sh:path ex:email ; sh:maxCount 1 ] ;
+    <span class="c-com"># A list property: between one and three distinct skills.</span>
+    sh:property [ sh:path ex:skills ; sh:minCount 1 ; sh:maxCount 3 ] ;
+    <span class="c-com"># A relationship: at most one employer.</span>
+    sh:property [ sh:path ex:worksFor ; sh:class ex:Company ; sh:maxCount 1 ] .</code></pre>
+<div class="table-scroll"><table>
+  <thead><tr><th>You mean</th><th>Write</th></tr></thead>
+  <tbody>
+    <tr><td>required</td><td><code>sh:minCount 1</code></td></tr>
+    <tr><td>optional, single-valued</td><td><code>sh:maxCount 1</code></td></tr>
+    <tr><td>exactly one</td><td><code>sh:minCount 1 ; sh:maxCount 1</code></td></tr>
+    <tr><td>between <em>n</em> and <em>m</em></td><td><code>sh:minCount n ; sh:maxCount m</code></td></tr>
+    <tr><td>optional, any number</td><td>nothing: that is the default</td></tr>
+  </tbody>
+</table></div>
+<p>SHACL has no "required" keyword. Absence is just "fewer than one value".</p>
+
+<h2>What counts as a value</h2>
+<p>Every path gives each focus node a <em>set</em> of values. In a property graph that set is built like this:</p>
+<ul>
+  <li>A scalar property is one value: <code>name: "Ann"</code> → {"Ann"}.</li>
+  <li>A list property is one value per element: <code>skills: ["go", "sql"]</code> → {"go", "sql"}.</li>
+  <li>A property that is absent, <code>null</code>, or an empty list is the empty set.</li>
+  <li><code>null</code> elements inside a list are dropped.</li>
+  <li>Counts are over <em>distinct</em> values: <code>["a", "a"]</code> is one value.</li>
+  <li>For a relationship path, the values are the distinct nodes reached.</li>
+</ul>
+<p>shacl2cypher's conformance suite pins this behaviour down with a fixture that runs against pySHACL, Neo4j and LadybugDB. For shapes <code>name</code> (min 1), <code>tags</code> (min 1, max 2) and <code>codes</code> (max 1):</p>
+<div class="table-scroll"><table>
+  <thead><tr><th>Node data</th><th>Violations</th></tr></thead>
+  <tbody>
+    <tr><td><code>{name: "Ann", tags: ["a","b"], codes: ["x"]}</code></td><td>none</td></tr>
+    <tr><td><code>{}</code></td><td><code>name</code> minCount, <code>tags</code> minCount</td></tr>
+    <tr><td><code>{name: null, tags: []}</code></td><td><code>name</code> minCount, <code>tags</code> minCount</td></tr>
+    <tr><td><code>{name: "Bo", tags: ["a","b","c"]}</code></td><td><code>tags</code> maxCount</td></tr>
+    <tr><td><code>{name: "Cy", tags: ["a","a"], codes: ["x","x"]}</code></td><td>none: duplicates count once</td></tr>
+    <tr><td><code>{name: "Di", tags: ["a"], codes: ["x","y"]}</code></td><td><code>codes</code> maxCount</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Why <code>sh:maxCount 1</code> matters on Neo4j</h2>
+<p>Neo4j allows any property to hold a list, and nothing stops an import script from writing <code>email: ["a@x", "b@x"]</code> where the application expects a string. <code>sh:maxCount 1</code> catches it. On LadybugDB a <code>STRING</code> column can't hold a list, but the rule still documents intent and still guards relationships.</p>
+
+<h2>Treating a list as one value</h2>
+<p>If a property is a list <em>as a whole</em>, say coordinates <code>[lat, lon]</code>, you may want <code>sh:maxCount 1</code> to mean "one list". Annotate it:</p>
+<pre><code>ex:location s2c:collection "scalar" .</code></pre>
+
+<h2>What a cardinality violation looks like</h2>
+<p>Counting constraints report once per focus node, not per value, so the row's <code>value</code> is <code>null</code>:</p>
+<pre><code>failed      Violation           1         2  PersonShape.email.minCount
+            - Person id=p2: social:PersonShape violates sh:minCount on social:email</code></pre>
+<p>That line comes from the <a href="../guides/lpg-modeler.html">LPG Modeler walkthrough</a>, where a model's <code>required: true</code> becomes exactly this constraint.</p>
+
+<div class="takeaways">
+  <h4>Takeaways</h4>
+  <ul>
+    <li><code>sh:minCount</code> and <code>sh:maxCount</code> express required, optional, single- and multi-valued.</li>
+    <li>Absent, <code>null</code> and <code>[]</code> are all zero values; list elements count separately; duplicates count once.</li>
+    <li>Only counting constraints and <code>sh:hasValue</code> notice that a value is missing. Everything in the next chapter ignores empty sets.</li>
+  </ul>
+</div>
+
+</article>
+<nav class="chapter-nav">
+  <a href="03-targets.html"><div class="dir">← Previous</div><div class="t">3. Targets and focus nodes</div></a>
+  <a class="next-ch" href="05-values.html"><div class="dir">Next →</div><div class="t">5. Constraining values</div></a>
+</nav>
+</div>
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>shacl2cypher — MIT licensed</span>
+    <span class="spacer"><a href="https://github.com/Volland/shacl2cypher">Source</a></span>
+    <span><a href="https://github.com/Volland/shacl2cypher/issues">Issues</a></span>
+    <span><a href="https://volland.github.io/lpg-modeler/">LPG Modeler</a></span>
+  </div>
+</footer>
+</body>
+</html>

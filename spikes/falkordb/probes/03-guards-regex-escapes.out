@@ -1,0 +1,367 @@
+
+==== # setup
+
+>> CREATE (:V {id: 'i', v: 5}), (:V {id: 's', v: 'abcd'}), (:V {id: 'l', v: ['ab', 'c']}), (:V {id: 'd', v: date('2020-01-01')}), (:V {id: 'n'}), (:V {id: 'f', v: 2.5}), (:V {id: 'b', v: true})
+Labels added: 7
+Nodes created: 7
+Properties set: 13
+
+==== # 1.4 guards over property values
+
+>> MATCH (n:V) RETURN n.id, size(n.v) ORDER BY n.id
+Type mismatch: expected List, String, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, typeOf(n.v) = 'String' AND size(n.v) > 3 ORDER BY n.id
+Type mismatch: expected List, String, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'String' THEN size(n.v) > 3 ELSE false END ORDER BY n.id
+Type mismatch: expected List, String, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, CASE typeOf(n.v) WHEN 'String' THEN size(n.v) ELSE -1 END ORDER BY n.id
+Type mismatch: expected List, String, or Null but was Integer
+
+
+>> MATCH (n:V) WHERE typeOf(n.v) = 'String' AND size(n.v) > 3 RETURN n.id
+n.id
+s
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'String' THEN size(string.matchRegEx(n.v, 'b')) > 0 ELSE false END ORDER BY n.id
+Type mismatch: expected String or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, [x IN CASE typeOf(n.v) WHEN 'Null' THEN [] WHEN 'List' THEN n.v ELSE [n.v] END WHERE NOT (CASE WHEN typeOf(x) = 'String' THEN size(x) >= 2 ELSE false END)] ORDER BY n.id
+Type mismatch: expected List, String, or Null but was Integer
+
+
+>> MATCH (n:V) RETURN n.id, NOT coalesce(n.v >= 3, false), n.v IN [5, 'abcd'] ORDER BY n.id
+n.id
+NOT coalesce(n.v >= 3, false)
+n.v IN [5, 'abcd']
+b
+true
+false
+d
+true
+false
+f
+true
+false
+i
+false
+true
+l
+true
+false
+n
+true
+
+s
+true
+true
+
+>> MATCH (n:V) RETURN n.id, toString(n.v) ORDER BY n.id
+Type mismatch: expected Datetime, Date, Time, Duration, String, Boolean, Integer, Float, Null, or Point but was List
+
+
+>> MATCH (n:V) WHERE n.id IN ['i', 's', 'f', 'b', 'd'] RETURN n.id, toString(n.v), toStringOrNull(n.v) ORDER BY n.id
+n.id
+toString(n.v)
+toStringOrNull(n.v)
+b
+true
+true
+d
+2020-01-01
+2020-01-01
+f
+2.500000
+2.500000
+i
+5
+5
+s
+abcd
+abcd
+
+>> MATCH (n:V) RETURN n.id, typeOf(n.v) IN ['Integer'] AND n.v >= -32768 AND n.v <= 32767 ORDER BY n.id
+n.id
+typeOf(n.v) IN ['Integer'] AND n.v >= -32768 AND n.v <= 32767
+b
+false
+d
+false
+f
+false
+i
+true
+l
+false
+n
+false
+s
+false
+
+>> MATCH (n:V) RETURN n.id, CASE WHEN typeOf(n.v) = 'Integer' THEN n.v >= -32768 AND n.v <= 32767 ELSE false END ORDER BY n.id
+n.id
+CASE WHEN typeOf(n.v) = 'Integer' THEN n.v >= -32768 AND n.v <= 32767 ELSE false END
+b
+false
+d
+false
+f
+false
+i
+true
+l
+false
+n
+false
+s
+false
+
+==== # 1.2 regex escapes as rendered by quote() (doubled backslashes)
+
+>> RETURN string.matchRegEx('A', '\\x{41}'), string.matchRegEx('A', '\\x41'), string.matchRegEx('é', '\\x{e9}'), string.matchRegEx('😀', '\\x{1F600}')
+string.matchRegEx('A', '\\x{41}')
+string.matchRegEx('A', '\\x41')
+string.matchRegEx('é', '\\x{e9}')
+string.matchRegEx('😀', '\\x{1F600}')
+[]
+[[A]]
+[]
+[]
+
+>> RETURN string.matchRegEx('é', '\\p{L}'), string.matchRegEx('٣', '\\d'), string.matchRegEx('٣', '\\p{Nd}'), string.matchRegEx('aa', '(a)\\1')
+string.matchRegEx('é', '\\p{L}')
+string.matchRegEx('٣', '\\d')
+string.matchRegEx('٣', '\\p{Nd}')
+string.matchRegEx('aa', '(a)\\1')
+[[é]]
+[[٣]]
+[[٣]]
+[[aa, a]]
+
+>> RETURN string.matchRegEx('a.b', 'a\\.b'), string.matchRegEx('axb', 'a\\.b'), string.matchRegEx('a\b', 'a\\\\b')
+string.matchRegEx('a.b', 'a\\.b')
+string.matchRegEx('axb', 'a\\.b')
+string.matchRegEx('a\b', 'a\\\\b')
+[[a.b]]
+[]
+[]
+
+>> RETURN string.matchRegEx('😀', '^.$'), string.matchRegEx('😀x', '^..$'), size('😀')
+string.matchRegEx('😀', '^.$')
+string.matchRegEx('😀x', '^..$')
+size('😀')
+[[😀]]
+[[😀x]]
+1
+
+>> RETURN string.matchRegEx('abc', '(?i:B)'), string.matchRegEx('A\nb', '(?im)^B$'), string.matchRegEx('A\nb', '(?s)(?s:.*)(?:b)(?s:.*)')
+string.matchRegEx('abc', '(?i:B)')
+string.matchRegEx('A\nb', '(?im)^B$')
+string.matchRegEx('A\nb', '(?s)(?s:.*)(?:b)(?s:.*)')
+[[b]]
+[[b]]
+[[A
+b]]
+
+>> RETURN string.matchRegEx('M', '[\\x{41}-\\x{5A}]'), string.matchRegEx('m', '[\\x{41}-\\x{5A}]'), string.matchRegEx('&', '[\\&\\~]')
+Invalid regex, err=empty range in char class
+
+
+>> RETURN string.matchRegEx('b', '[a-z&&[^b]]'), string.matchRegEx('c', '[a-z&&[^b]]')
+string.matchRegEx('b', '[a-z&&[^b]]')
+string.matchRegEx('c', '[a-z&&[^b]]')
+[]
+[[c]]
+
+>> RETURN string.matchRegEx('x', '\\p{IsBasicLatin}')
+Invalid regex, err=invalid character property name {IsBasicLatin}
+
+
+>> RETURN string.matchRegEx('_', '[\\p{L}\\p{Nd}_]'), string.matchRegEx('a', '\\w'), string.matchRegEx('é', '\\w'), string.matchRegEx(' ', '\\s')
+string.matchRegEx('_', '[\\p{L}\\p{Nd}_]')
+string.matchRegEx('a', '\\w')
+string.matchRegEx('é', '\\w')
+string.matchRegEx(' ', '\\s')
+[[_]]
+[[a]]
+[[é]]
+[[ ]]
+
+>> RETURN string.matchRegEx('ab', 'a(?#comment)b'), string.matchRegEx('aB', '(?i)a(?-i)B'), string.matchRegEx('ab', '\\Aab\\z')
+string.matchRegEx('ab', 'a(?#comment)b')
+string.matchRegEx('aB', '(?i)a(?-i)B')
+string.matchRegEx('ab', '\\Aab\\z')
+[[ab]]
+[[aB]]
+[[ab]]
+
+==== # 1.3 temporal edge cases
+
+>> RETURN typeOf(duration('-P1D')), duration('-P1D') IS NULL
+typeOf(duration('-P1D'))
+duration('-P1D') IS NULL
+Null
+true
+
+>> RETURN typeOf(duration('P1Y2M3DT4H5M6.5S')), duration('P1Y2M3DT4H5M6.5S') IS NULL
+typeOf(duration('P1Y2M3DT4H5M6.5S'))
+duration('P1Y2M3DT4H5M6.5S') IS NULL
+Null
+true
+
+>> RETURN duration('P1DT2H') = duration('PT26H'), duration('P1M') < duration('P31D'), duration('PT1.5S')
+duration('P1DT2H') = duration('PT26H')
+duration('P1M') < duration('P31D')
+duration('PT1.5S')
+true
+false
+
+
+>> RETURN localdatetime('2020-01-01T10:00:00.5') = localdatetime('2020-01-01T10:00:00'), localtime('10:00:00.25') = localtime('10:00:00')
+localdatetime('2020-01-01T10:00:00.5') = localdatetime('2020-01-01T10:00:00')
+localtime('10:00:00.25') = localtime('10:00:00')
+true
+true
+
+>> RETURN date('2020-02-30')
+date('2020-02-30')
+2020-03-01
+
+>> RETURN localdatetime('2020-01-01T10:00:00') = date('2020-01-01'), typeOf(localdatetime('2020-01-01'))
+localdatetime('2020-01-01T10:00:00') = date('2020-01-01')
+typeOf(localdatetime('2020-01-01'))
+false
+Datetime
+
+>> RETURN date('2020-01-01') = date('2020-01-01'), date('2020-01-01') IN [date('2020-01-01')], toString(date('2020-01-01')), toString(localdatetime('2020-01-01T10:00:00'))
+date('2020-01-01') = date('2020-01-01')
+date('2020-01-01') IN [date('2020-01-01')]
+toString(date('2020-01-01'))
+toString(localdatetime('2020-01-01T10:00:00'))
+true
+true
+2020-01-01
+2020-01-01T10:00:00
+
+>> RETURN localtime('24:00:00')
+Failed to parse datetime
+
+
+>> RETURN date('-0001-01-01'), date('+12020-01-01')
+Failed to parse date
+
+
+==== # 1.6 string escapes
+
+>> RETURN 'x\u00e9y', size('x\u00e9y'), 'q\u0027q'
+'x\u00e9y'
+size('x\u00e9y')
+'q\u0027q'
+x\u00e9y
+8
+q\u0027q
+
+>> RETURN 'multi
+line', size('multi
+line')
+'multi
+line'
+size('multi
+line')
+multi
+line
+10
+
+>> RETURN 'nul\u0000x', size('nul\u0000x')
+'nul\u0000x'
+size('nul\u0000x')
+nul\u0000x
+10
+
+>> RETURN '😀', size('😀'), '\uD83D\uDE00'
+'😀'
+size('😀')
+'\uD83D\uDE00'
+😀
+1
+\uD83D\uDE00
+
+==== # 1.6 identifiers
+
+>> CREATE (:`Sp ace` {`we ird`: 1, `dot.key`: 2})
+Labels added: 1
+Nodes created: 1
+Properties set: 2
+
+>> MATCH (n:`Sp ace`) RETURN n.`we ird`, n.`dot.key`, keys(n), properties(n)
+n.`we ird`
+n.`dot.key`
+keys(n)
+properties(n)
+1
+2
+[we ird, dot.key]
+{we ird: 1, dot.key: 2}
+
+>> CREATE (:`Ünï` {id: 'u'})
+Labels added: 1
+Nodes created: 1
+Properties set: 1
+
+>> MATCH (n:`Ünï`) RETURN labels(n)
+labels(n)
+[Ünï]
+
+>> CREATE (:`a\u0041` {id: 'bu'})
+Labels added: 1
+Nodes created: 1
+Properties set: 1
+
+>> MATCH (n) WHERE n.id = 'bu' RETURN labels(n)
+labels(n)
+[a\u0041]
+
+>> CREATE (:`x\`y` {id: 'bt'})
+errMsg: Invalid input 'y': expected a label, '{', a parameter or ')' line: 1, column: 14, offset: 13 errCtx: CREATE (:`x\`y` {id: 'bt'}) errCtxOffset: 13
+
+
+>> CREATE (:`x'y"z` {id: 'q'})
+Labels added: 1
+Nodes created: 1
+Properties set: 1
+
+>> MATCH (n {id: 'q'}) RETURN labels(n)
+labels(n)
+[x'y"z]
+
+>> CREATE (:`` {id: 'e'})
+Labels added: 1
+Nodes created: 1
+Properties set: 1
+
+>> RETURN 1 AS `a b`
+a b
+1
+
+>> CREATE (:V {id: 'kk', `k``k`: 1})
+errMsg: Invalid input '`': expected ':' line: 1, column: 26, offset: 25 errCtx: CREATE (:V {id: 'kk', `k``k`: 1}) errCtxOffset: 25
+
+
+>> CREATE (:`MATCH` {id: 'kw'})
+Labels added: 1
+Nodes created: 1
+Properties set: 1
+
+>> MATCH (n:`MATCH`) RETURN n.id
+n.id
+kw
+
+>> MATCH (n) RETURN count(n)
+count(n)
+13

@@ -1,0 +1,24 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex:  <http://example.org/hr#> .
+
+ex:ProjectShape a sh:NodeShape ;
+    sh:targetClass ex:Project ;
+    # A project must end after it starts.
+    sh:property [ sh:path ex:startDate ; sh:lessThan ex:endDate ] .
+
+ex:PersonShape a sh:NodeShape ;
+    sh:targetClass ex:Person ;
+    # The backup address must differ from the primary one.
+    sh:property [ sh:path ex:email ; sh:disjoint ex:backupEmail ] ;
+    # The login is the email address, always.
+    sh:property [ sh:path ex:login ; sh:equals ex:email ] .
+
+# Only these properties and outgoing relationships may appear on an :Address.
+ex:AddressShape a sh:NodeShape ;
+    sh:targetClass ex:Address ;
+    sh:closed true ;
+    sh:ignoredProperties ( ex:createdAt ) ;
+    sh:property [ sh:path ex:street ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path ex:zip ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path ex:inCity ; sh:class ex:City ] .
