@@ -28,6 +28,7 @@ User documentation is a static HTML site in `doc/`, published to GitHub Pages by
 
 - Pages source must be set to "GitHub Actions", because branch-based Pages only serves `/` or `/docs`.
 - Sections: overview, getting started, reference, a SHACL usage guide, an LPG Modeler integration guide, the book *Shapes for Property Graphs* (`doc/book/`, nine chapters), and articles on the design and the FalkorDB dialect.
+- German legal pages sit at the site root: `impressum.html` (§ 5 DDG), `datenschutz.html` (DSGVO) and `agb.html` (terms of use). Every page's footer links to all three. The privacy policy states that the site uses no cookies, tracking or third-party resources, so adding any of those means updating it.
 - Styles and self-hosted fonts are shared with the LPG Modeler site, with its own accent colour; there is no build step.
 - Every shapes file quoted by the book lives in `doc/examples/book/` and must compile with `shacl2cypher compile --dialect neo4j`. `doc/examples/modeler/` holds the files of the LPG Modeler walkthrough.
 - The FalkorDB article describes the `add-falkordb-dialect` change as in development; update it when the dialect ships.
@@ -121,8 +122,8 @@ Backends are cargo features of `shacl2cypher-runner` and `shacl2cypher`; without
 - `falkordb` uses the `falkordb` crate over the Redis protocol (`--falkordb <url> --graph <name>`, credentials in the URL or `FALKORDB_USERNAME`/`FALKORDB_PASSWORD`; `rediss://` is rejected).
   - Queries only run through `GRAPH.RO_QUERY`, which refuses writes and never creates a graph. A graph missing from `GRAPH.LIST` is a setup error.
   - `--timeout` becomes the server-side `TIMEOUT`; without it the runner sends `TIMEOUT 0`, because the server otherwise stops queries after 1000 ms. The client's own response timeout does not interrupt queries.
-  - The client drops the first word of server errors, so a timeout is recognized by its `timed out` suffix. Rows convert to JSON explicitly, with dates, local date-times and local times as ISO strings and durations as `PT<seconds>S`.
   - `$limit` and `$sampleSize` are capped at `i32::MAX`, because the amd64 server build returns no rows for larger limits such as the `i64::MAX` sent for "no limit".
+  - The client drops the first word of server errors, so a timeout is recognized by its `timed out` suffix. Rows convert to JSON explicitly, with dates, local date-times and local times as ISO strings and durations as `PT<seconds>S`.
 
 ### Schema Dump
 
