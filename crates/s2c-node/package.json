@@ -1,6 +1,6 @@
 {
   "name": "shacl2cypher",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Compile SHACL shapes into Cypher diagnostic queries and validate Neo4j or LadybugDB graphs",
   "license": "MIT",
   "repository": {
@@ -42,9 +42,9 @@
     ]
   },
   "optionalDependencies": {
-    "shacl2cypher-darwin-arm64": "0.2.0",
-    "shacl2cypher-linux-arm64-gnu": "0.2.0",
-    "shacl2cypher-linux-x64-gnu": "0.2.0"
+    "shacl2cypher-darwin-arm64": "0.3.0",
+    "shacl2cypher-linux-arm64-gnu": "0.3.0",
+    "shacl2cypher-linux-x64-gnu": "0.3.0"
   },
   "scripts": {
     "build": "napi build --platform --release --no-js --dts native.d.ts --features neo4j,ladybug,remote-imports",

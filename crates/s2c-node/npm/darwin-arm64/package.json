@@ -1,6 +1,6 @@
 {
   "name": "shacl2cypher-darwin-arm64",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "shacl2cypher native addon for macOS arm64",
   "license": "MIT",
   "repository": "https://github.com/Volland/shacl2cypher",

@@ -1,6 +1,6 @@
 {
   "name": "shacl2cypher-linux-x64-gnu",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "shacl2cypher native addon for Linux x64 (glibc)",
   "license": "MIT",
   "repository": "https://github.com/Volland/shacl2cypher",
