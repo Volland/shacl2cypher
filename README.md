@@ -158,7 +158,7 @@ try {
 
 ### Platforms and source builds
 
-Wheels (one abi3 wheel for CPython 3.9+) and npm addons are published for Linux x86_64 and arm64 (glibc 2.28+) and macOS arm64, each with the Neo4j and LadybugDB backends. Other platforms can install the Python source distribution, which builds both backends and needs Rust 1.87+, cmake and a C++ compiler. A compile-only build needs neither cmake nor C++:
+Wheels (one abi3 wheel for CPython 3.9+) and npm addons are published for Linux x86_64 and arm64 (glibc 2.28+) and macOS 13.3+ arm64, each with the Neo4j and LadybugDB backends. They include a static OpenSSL, so no system OpenSSL is needed. Other platforms can install the Python source distribution, which builds both backends and needs Rust 1.87+, cmake and a C++ compiler. A compile-only build needs neither cmake nor C++:
 
 ```sh
 MATURIN_PEP517_ARGS="--no-default-features --features remote-imports" pip install --no-binary shacl2cypher shacl2cypher

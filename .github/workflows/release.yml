@@ -14,6 +14,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # lbug links OpenSSL; every release artifact links this version statically.
+  OPENSSL_VERSION: "3.0.15"
 
 jobs:
   check-version:
@@ -55,6 +57,9 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
+    env:
+      # lbug's C++ uses std::format, which needs macOS 13.3; ignored on Linux.
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -63,8 +68,14 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: release-${{ matrix.target }}
+          key: release-${{ matrix.target }}-static-openssl
+      - name: Build static OpenSSL
+        shell: bash
+        run: |
+          scripts/ci/static-openssl.sh "$RUNNER_TEMP/openssl"
+          echo "OPENSSL_DIR=$RUNNER_TEMP/openssl" >> "$GITHUB_ENV"
       - run: cargo build --release --locked -p shacl2cypher --features neo4j,ladybug --target ${{ matrix.target }}
+      - run: scripts/ci/check-no-dynamic-openssl.sh "target/${{ matrix.target }}/release/shacl2cypher"
       - name: Package
         shell: bash
         run: |
@@ -101,6 +112,8 @@ jobs:
     container: ${{ matrix.container }}
     env:
       NODE_VERSION: "22.12.0"
+      # lbug's C++ uses std::format, which needs macOS 13.3; ignored on Linux.
+      MACOSX_DEPLOYMENT_TARGET: "13.3"
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust, Python tools, cmake and Node (manylinux)
@@ -109,6 +122,8 @@ jobs:
         run: |
           curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.87.0
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          # Perl modules OpenSSL's Configure needs.
+          dnf install -y perl-IPC-Cmd perl-Time-Piece
           /opt/python/cp312-cp312/bin/python -m pip install maturin cmake
           echo "/opt/python/cp312-cp312/bin" >> "$GITHUB_PATH"
           curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${{ matrix.node-arch }}.tar.xz" | tar -xJ -C /opt
@@ -130,7 +145,12 @@ jobs:
         run: python -m pip install maturin
       - uses: Swatinem/rust-cache@v2
         with:
-          key: bindings-${{ matrix.platform }}
+          key: bindings-${{ matrix.platform }}-static-openssl
+      - name: Build static OpenSSL
+        shell: bash
+        run: |
+          scripts/ci/static-openssl.sh "$RUNNER_TEMP/openssl"
+          echo "OPENSSL_DIR=$RUNNER_TEMP/openssl" >> "$GITHUB_ENV"
       - name: Build the wheel
         shell: bash
         run: |
@@ -155,6 +175,12 @@ jobs:
       - name: Smoke-test the Node addon
         shell: bash
         run: node tests/bindings/smoke.js crates/s2c-node target/release/s2c-fixture
+      - name: Check that no artifact loads OpenSSL dynamically
+        shell: bash
+        run: |
+          scripts/ci/check-no-dynamic-openssl.sh \
+            /tmp/smoke/lib/python3*/site-packages/shacl2cypher/_native*.so \
+            "crates/s2c-node/shacl2cypher.${{ matrix.platform }}.node"
       - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.platform }}

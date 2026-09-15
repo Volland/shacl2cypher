@@ -67,7 +67,7 @@ The loader picks the `shacl2cypher-<platform>` package (or a local `shacl2cypher
 
 ## Packaging
 
-Wheels and npm addons cover Linux x86_64 and arm64 on glibc 2.28+ and macOS arm64, each with both database backends; the packages share the workspace version.
+Wheels and npm addons cover Linux x86_64 and arm64 on glibc 2.28+ and macOS 13.3+ arm64, each with both database backends; the packages share the workspace version.
 
 - PyPI: one abi3 wheel per platform plus an sdist whose default build includes both backends (cmake and a C++ compiler needed).
 - npm: `shacl2cypher` lists `shacl2cypher-linux-x64-gnu`, `shacl2cypher-linux-arm64-gnu` and `shacl2cypher-darwin-arm64` as optional dependencies; npm installs only the matching one.
@@ -78,6 +78,8 @@ Pushing a `v*` tag builds every wheel, the sdist and every addon, smoke-tests th
 
 - `check-version` fails the release when the tag differs from the workspace version, or when `crates/s2c-node/scripts/version.js check` finds an npm `package.json` on another version.
 - One `bindings` job per platform builds the wheel and the addon from one `target/`, so LadybugDB's C++ compiles once. Linux jobs run in `manylinux_2_28` images that install Rust 1.87, cmake and Node 22, giving both packages the glibc 2.28 baseline.
+- `lbug` always links `ssl` and `crypto`. Release jobs, including the CLI binaries, build a static-only OpenSSL with `scripts/ci/static-openssl.sh` and point `OPENSSL_DIR` at it, so no artifact needs OpenSSL at runtime. `scripts/ci/check-no-dynamic-openssl.sh` fails the job otherwise.
+- `MACOSX_DEPLOYMENT_TARGET` is 13.3 because `lbug`'s C++ uses `std::format`; maturin's default of 11.0 fails to compile it.
 - Each job smoke-tests its artifacts with `tests/bindings/smoke.py` and `smoke.js`: backends, a compile, and validation of an `s2c-fixture ladybug-db` database. The `sdist` job installs its archive as a compile-only build (`MATURIN_PEP517_ARGS`) and smoke-tests that.
 - `publish` needs every build and uploads wheels and sdist with PyPI trusted publishing, then the npm platform packages and the main package with `NPM_TOKEN` and provenance.
 
