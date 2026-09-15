@@ -6,5 +6,6 @@ This directory defines the high-level concepts, business logic, and architecture
 - [[output]] — manifest, named query variants, row schema, focus identity, rule naming, cost classes
 - [[dialects]] — IR, Neo4j and LadybugDB backends, schema snapshot, literal and identifier escaping
 - [[architecture]] — Rust crates, input assembly, shapes AST, runner and reports
+- [[bindings]] — Python and Node.js packages, database worker threads, data model, errors, packaging and release
 - [[testing]] — differential conformance fixtures, W3C suite, snapshots, fuzzing, determinism
 - [[tests]] — test specifications, each referenced by the test that covers it

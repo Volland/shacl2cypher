@@ -56,6 +56,18 @@ pub fn neo4j_script(fixture: &Fixture) -> Vec<String> {
     statements
 }
 
+/// Writes the fixture's LPG projection into a new LadybugDB database file.
+#[cfg(feature = "ladybug")]
+pub fn create_ladybug_database(fixture: &Fixture, path: &std::path::Path) -> Result<(), String> {
+    let db = lbug::Database::new(path, lbug::SystemConfig::default()).map_err(|e| e.to_string())?;
+    let conn = lbug::Connection::new(&db).map_err(|e| e.to_string())?;
+    for statement in ladybug_script(fixture)? {
+        conn.query(&statement)
+            .map_err(|e| format!("load: {statement}: {e}"))?;
+    }
+    Ok(())
+}
+
 /// LadybugDB load script: node table DDL, rel table DDL, node inserts, edge inserts.
 // @lat: [[testing#Conformance Fixtures]]
 pub fn ladybug_script(fixture: &Fixture) -> Result<Vec<String>, String> {

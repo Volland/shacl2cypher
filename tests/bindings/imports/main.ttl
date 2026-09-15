@@ -1,0 +1,9 @@
+@prefix sh:  <http://www.w3.org/ns/shacl#> .
+@prefix ex:  <http://example.org/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+# The relative import resolves against this file, so it appears in manifest inputs.
+<> owl:imports <lib/common.ttl> .
+
+ex:PersonShape sh:targetClass ex:Person ;
+    sh:node ex:NamedShape .

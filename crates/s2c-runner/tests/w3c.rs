@@ -76,9 +76,8 @@ fn outcome(config: &Neo4jConfig, test: &W3cTest) -> String {
     std::fs::write(&shapes[0], w3c::ntriples(test)).unwrap();
     let request = CompileRequest {
         shapes: &shapes,
-        ontologies: &[],
         schema: Some(&schema),
-        fetcher: None,
+        ..CompileRequest::default()
     };
     let options = CompileOptions {
         dialect: Dialect::Neo4j,

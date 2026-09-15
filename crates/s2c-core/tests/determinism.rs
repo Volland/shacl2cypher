@@ -53,9 +53,8 @@ fn compile_in(dir: &Path, files: &[&str], dialect: Dialect) -> Compilation {
     let shapes: Vec<PathBuf> = files.iter().map(|f| dir.join(f)).collect();
     let request = CompileRequest {
         shapes: &shapes,
-        ontologies: &[],
         schema: (dialect == Dialect::Ladybug).then_some(SCHEMA),
-        fetcher: None,
+        ..CompileRequest::default()
     };
     let options = CompileOptions {
         dialect,

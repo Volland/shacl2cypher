@@ -18,6 +18,10 @@ A shape declared in one file and extended in another compiles as one shape; inpu
 
 Files importing each other through `owl:imports` are each loaded once and compilation proceeds.
 
+### In-Memory Documents
+
+Shapes given as named text compile to the byte-identical manifest of the same files in the base directory, and report `name:line` locations.
+
 ### Remote Imports Need Opt-In
 
 An `https://` import fails compilation, naming the import, unless `--allow-remote-imports` is set.
@@ -153,6 +157,122 @@ Without backend features, `validate` and `schema dump` report that no database b
 ### Setup Error Exit Codes
 
 Compile errors exit 1 without writing files; usage errors exit 2.
+
+### Database Worker
+
+A worker thread owns one executor, completes concurrent jobs in turn, rejects jobs after close and returns open errors.
+
+## Python Binding
+
+The `shacl2cypher` PyPI package, tested with pytest against the CLI and fixture LadybugDB files — see [[bindings#Testing]].
+
+### Compile From Files And Documents
+
+`compile` accepts paths and `Source` documents, returns manifest dict, manifest JSON and Cypher, and rejects an empty shapes list.
+
+### Output Parity With The CLI
+
+Manifest JSON and Cypher from `compile` equal the CLI's `manifest.json` and `queries.cypher` byte for byte.
+
+### Typed Errors
+
+`CompileError.errors` lists every problem with its `name:line`, nothing is written, and every error class derives from `Shacl2CypherError`.
+
+### Remote Imports
+
+Remote imports fail without opt-in, and with it a body over 16 MB fails naming the import and the limit.
+
+### Backend Availability
+
+A compile-only build reports no backends and raises `BackendUnavailableError` when a database is opened.
+
+### Database Handles
+
+A missing LadybugDB file raises `DatabaseConnectionError` without creating it; closed handles raise `DatabaseClosedError`.
+
+### Validate
+
+`validate` runs shapes or manifests with limits, rejects other-dialect manifests with `ManifestError` and non-positive timeouts with `ValueError`.
+
+### Reports And Exit Codes
+
+Reports equal the CLI's JSON report apart from timings, render in every format and score exit codes by `fail_on`.
+
+### Schema Dump
+
+`schema_json` equals `schema dump` output, and the parsed snapshot compiles to the same manifest as that text.
+
+### Non-Blocking Execution
+
+A validation of 300 rules releases the GIL, so another thread keeps counting while it runs.
+
+### Published Types
+
+Manifest, report and schema dicts have exactly the keys their `TypedDict`s declare.
+
+### Shared Parity Cases
+
+Every case in `tests/bindings/cases.json` (split files, a local import, a schema-backed LadybugDB compile) matches the CLI's files byte for byte.
+
+### Report Parity
+
+A LadybugDB fixture report renders as table, JSON, JUnit and SARIF exactly like the CLI once per-run timings are zeroed.
+
+## Node Binding
+
+The `shacl2cypher` npm package, tested with `node:test` against the CLI and fixture LadybugDB files — see [[bindings#Testing]].
+
+### Compile From Files And Documents
+
+`compile` and `compileSync` accept paths and `{ name, text }` documents, agree with each other, and reject an empty shapes list.
+
+### Output Parity With The CLI
+
+`manifestJson` and `cypher` equal the CLI's `manifest.json` and `queries.cypher` byte for byte.
+
+### Typed Errors
+
+`CompileError.errors` lists every problem with its `name:line`, nothing is written, and every error class derives from `Shacl2CypherError`.
+
+### Remote Imports
+
+Remote imports reject without opt-in, and with it a body over 16 MB rejects naming the import and the limit.
+
+### Backend Availability
+
+A compile-only build rejects `Ladybug.open` with `BackendUnavailableError`.
+
+### Database Handles
+
+A missing LadybugDB file rejects with `DatabaseConnectionError` without creating it; closed handles reject with `DatabaseClosedError`.
+
+### Validate
+
+`validate` runs shapes or manifests with limits, rejects other-dialect manifests with `ManifestError` and negative `timeoutMs` with `RangeError`.
+
+### Reports And Exit Codes
+
+Reports equal the CLI's JSON report apart from timings, `renderReport` covers every format and `exitCode` follows `failOn`.
+
+### Schema Dump
+
+The snapshot from `db.schema()` compiles to the same manifest as the CLI's `schema dump` file.
+
+### Non-Blocking Execution
+
+A 10 ms timer fires before a validation of 300 rules settles, so the event loop stays free.
+
+### Published Types
+
+Manifest, report and schema objects have exactly the keys `index.d.ts` declares, read with the TypeScript compiler API.
+
+### Shared Parity Cases
+
+Every case in `tests/bindings/cases.json` (split files, a local import, a schema-backed LadybugDB compile) matches the CLI's files byte for byte.
+
+### Report Parity
+
+A LadybugDB fixture report renders as table, JSON, JUnit and SARIF exactly like the CLI once per-run timings are zeroed.
 
 ## Conformance
 

@@ -1,0 +1,13 @@
+{
+  "nodeTypes": [
+    {
+      "name": "Person",
+      "properties": [
+        { "name": "id", "type": "STRING" },
+        { "name": "name", "type": "STRING" },
+        { "name": "salary", "type": "INT64" }
+      ]
+    }
+  ],
+  "relTypes": []
+}

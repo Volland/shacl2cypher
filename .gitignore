@@ -1,2 +1,14 @@
 target/
 lat.md/.cache/
+
+# Language bindings: built extensions, dependencies and tool caches.
+*.node
+# napi-rs declarations of the raw addon; the public types are index.d.ts.
+crates/s2c-node/native.d.ts
+*.so
+*.pyd
+node_modules/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+dist/

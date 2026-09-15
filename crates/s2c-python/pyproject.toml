@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "shacl2cypher"
+dynamic = ["version"]
+description = "Compile SHACL shapes into Cypher diagnostic queries and validate Neo4j or LadybugDB graphs"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+keywords = ["shacl", "cypher", "neo4j", "ladybugdb", "validation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Database",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/Volland/shacl2cypher"
+Repository = "https://github.com/Volland/shacl2cypher"
+
+[tool.maturin]
+module-name = "shacl2cypher._native"
+python-source = "python"
+# Wheels and default source builds bundle both database backends.
+features = ["neo4j", "ladybug", "remote-imports"]

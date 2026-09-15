@@ -6,7 +6,13 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+default = []
+# `s2c-fixture ladybug-db`: materialize fixtures into LadybugDB files.
+ladybug = ["dep:lbug"]
+
 [dependencies]
+lbug = { version = "0.20.4", optional = true }
 oxrdf = "0.3.4"
 oxttl = "0.2.4"
 serde = { version = "1.0.229", features = ["derive"] }

@@ -16,9 +16,8 @@ fn cypher(dialect: Dialect, schema: Option<&str>) -> String {
     let shapes = [data("snapshot.ttl")];
     let request = CompileRequest {
         shapes: &shapes,
-        ontologies: &[],
         schema,
-        fetcher: None,
+        ..CompileRequest::default()
     };
     let options = CompileOptions {
         dialect,

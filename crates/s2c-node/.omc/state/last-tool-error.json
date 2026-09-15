@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"export DEVELOPER_DIR=/Library/Developer/CommandLineTools && before=$(shasum index.js index.d.ts index.mjs) && rm -f shacl2cypher.darwin-arm64.node && npx napi build --platform --no-js --fe...",
+  "error": "Exit code 1\n   Compiling neo4rs v0.9.0-rc.10\n   Compiling shacl2cypher-runner v0.1.0 (/Users/volodymyrpavlyshyn/Documents/work/shacl2cypher/crates/s2c-runner)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.58s",
+  "timestamp": "2026-09-15T08:01:30.312Z",
+  "retry_count": 1
+}

@@ -1,6 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/s2c-core", "crates/s2c-cli", "crates/s2c-runner", "crates/s2c-testkit"]
+members = [
+    "crates/s2c-core",
+    "crates/s2c-cli",
+    "crates/s2c-runner",
+    "crates/s2c-testkit",
+    "crates/s2c-python",
+    "crates/s2c-node",
+]
 exclude = ["spikes"]
 
 [workspace.package]

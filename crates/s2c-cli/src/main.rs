@@ -1,19 +1,16 @@
-use std::io::Read;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use shacl2cypher_core::compile::{compile, CompileOptions, CompileRequest, Manifest};
 use shacl2cypher_core::hierarchy::LabelPolicy;
-use shacl2cypher_core::load::RemoteFetcher;
 use shacl2cypher_core::render::Dialect;
+use shacl2cypher_runner::backend::{self, BackendConfig};
 use shacl2cypher_runner::executor::Executor;
+use shacl2cypher_runner::remote::HttpFetcher;
 use shacl2cypher_runner::report::{self, Format};
+use shacl2cypher_runner::session;
 use shacl2cypher_runner::validate::{exit_code, validate, FailOn, ValidateOptions};
-
-/// Largest remote import accepted with `--allow-remote-imports`.
-const MAX_REMOTE_BYTES: u64 = 16 * 1024 * 1024;
 
 /// Exit code for usage and setup errors of `validate` and `schema dump`.
 const SETUP_ERROR: u8 = 2;
@@ -184,31 +181,6 @@ enum FailOnArg {
     Info,
 }
 
-struct HttpFetcher;
-
-impl RemoteFetcher for HttpFetcher {
-    fn fetch(&self, iri: &str) -> Result<Vec<u8>, String> {
-        let response = ureq::get(iri)
-            .timeout(Duration::from_secs(30))
-            .set(
-                "Accept",
-                "text/turtle, application/n-triples, application/trig;q=0.9",
-            )
-            .call()
-            .map_err(|e| e.to_string())?;
-        let mut body = Vec::new();
-        response
-            .into_reader()
-            .take(MAX_REMOTE_BYTES + 1)
-            .read_to_end(&mut body)
-            .map_err(|e| e.to_string())?;
-        if body.len() as u64 > MAX_REMOTE_BYTES {
-            return Err(format!("larger than {MAX_REMOTE_BYTES} bytes"));
-        }
-        Ok(body)
-    }
-}
-
 /// An error message with the exit code it ends the process with.
 struct Failure {
     code: u8,
@@ -274,6 +246,7 @@ fn run_compile(args: CompileArgs) -> Result<u8, String> {
         ontologies: &args.flags.ontology,
         schema: schema.as_deref(),
         fetcher: Some(&HttpFetcher),
+        ..CompileRequest::default()
     };
     let compilation =
         compile(&request, &compile_options(&args.flags, dialect)).map_err(|e| e.to_string())?;
@@ -316,56 +289,22 @@ fn print_diagnostics(manifest: &Manifest) {
 /// Opens the database named by `--connect` or `--ladybug`.
 // @lat: [[architecture#Runner#Backends]]
 fn open_backend(args: &BackendArgs) -> Result<Box<dyn Executor>, Failure> {
-    let available = shacl2cypher_runner::available_backends();
-    if available.is_empty() {
-        return Err(setup(
-            "no database backend is available in this build; rebuild with `--features neo4j` or `--features ladybug`",
-        ));
-    }
-    #[cfg(not(all(feature = "neo4j", feature = "ladybug")))]
-    let missing = |backend: &str| {
-        setup(format!(
-            "the {backend} backend is not available in this build (available: {})",
-            available.join(", ")
-        ))
+    backend::require_any_backend().map_err(setup)?;
+    let config = match (&args.connect, &args.ladybug) {
+        (Some(uri), _) => BackendConfig::Neo4j {
+            uri: uri.clone(),
+            user: args.user.clone(),
+            password: args.password.clone(),
+            database: args.database.clone(),
+        },
+        (None, Some(path)) => BackendConfig::Ladybug { path: path.clone() },
+        (None, None) => {
+            return Err(setup(
+                "name a database with `--connect <bolt-uri>` or `--ladybug <database file>`",
+            ))
+        }
     };
-    match (&args.connect, &args.ladybug) {
-        (Some(uri), _) => {
-            #[cfg(feature = "neo4j")]
-            {
-                let config = shacl2cypher_runner::neo4j::Neo4jConfig {
-                    uri: uri.clone(),
-                    user: args.user.clone(),
-                    password: args.password.clone(),
-                    database: args.database.clone(),
-                };
-                let executor =
-                    shacl2cypher_runner::neo4j::Neo4jExecutor::connect(config).map_err(setup)?;
-                Ok(Box::new(executor))
-            }
-            #[cfg(not(feature = "neo4j"))]
-            {
-                let _ = uri;
-                Err(missing("neo4j"))
-            }
-        }
-        (None, Some(path)) => {
-            #[cfg(feature = "ladybug")]
-            {
-                let executor =
-                    shacl2cypher_runner::ladybug::LadybugExecutor::open(path).map_err(setup)?;
-                Ok(Box::new(executor))
-            }
-            #[cfg(not(feature = "ladybug"))]
-            {
-                let _ = path;
-                Err(missing("ladybug"))
-            }
-        }
-        (None, None) => Err(setup(
-            "name a database with `--connect <bolt-uri>` or `--ladybug <database file>`",
-        )),
-    }
+    backend::open(&config).map_err(setup)
 }
 
 fn write_output(output: Option<&PathBuf>, contents: &str) -> Result<(), Failure> {
@@ -383,10 +322,10 @@ fn write_output(output: Option<&PathBuf>, contents: &str) -> Result<(), Failure>
 // @lat: [[architecture#Runner#Validate Flow]]
 fn run_validate(args: ValidateArgs) -> Result<u8, Failure> {
     let timeout = match args.timeout {
-        Some(seconds) if seconds.is_finite() && seconds > 0.0 => {
-            Some(Duration::from_secs_f64(seconds))
-        }
-        Some(_) => return Err(setup("--timeout must be a positive number of seconds")),
+        Some(seconds) => Some(
+            session::positive_timeout(seconds)
+                .ok_or_else(|| setup("--timeout must be a positive number of seconds"))?,
+        ),
         None => None,
     };
     let mut executor = open_backend(&args.backend)?;
@@ -396,20 +335,26 @@ fn run_validate(args: ValidateArgs) -> Result<u8, Failure> {
         Some(path) => Manifest::from_json(&read(path).map_err(setup)?)
             .map_err(|e| setup(format!("{}: {e}", path.display())))?,
         None => {
-            let schema = match (&args.flags.schema, dialect) {
-                (Some(path), _) => Some(read(path).map_err(setup)?),
-                (None, Dialect::Ladybug) => Some(executor.schema().map_err(setup)?.to_json()),
-                (None, Dialect::Neo4j) => None,
-            };
+            let schema = args
+                .flags
+                .schema
+                .as_ref()
+                .map(read)
+                .transpose()
+                .map_err(setup)?;
             let request = CompileRequest {
                 shapes: &args.shapes,
                 ontologies: &args.flags.ontology,
                 schema: schema.as_deref(),
                 fetcher: Some(&HttpFetcher),
+                ..CompileRequest::default()
             };
-            let compilation =
-                compile(&request, &compile_options(&args.flags, dialect)).map_err(setup)?;
-            compilation.manifest
+            session::compile_for(
+                executor.as_mut(),
+                &request,
+                &compile_options(&args.flags, dialect),
+            )
+            .map_err(setup)?
         }
     };
     print_diagnostics(&manifest);

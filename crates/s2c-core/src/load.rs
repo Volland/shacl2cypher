@@ -28,6 +28,19 @@ pub struct SourceLocation {
 pub enum InputSource {
     File(PathBuf),
     Remote(String),
+    /// An in-memory [`Document`], placed at this lexically normalized path.
+    Document(PathBuf),
+}
+
+/// A shapes or ontology document given as text instead of a file. It is loaded as
+/// if it were a file named `name` in the base directory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Document {
+    /// Path relative to the base directory, e.g. `person.ttl`.
+    pub name: String,
+    pub text: String,
+    /// Inferred from the name's extension when absent.
+    pub format: Option<RdfFormat>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,7 +54,7 @@ impl Input {
     /// File path or remote IRI, for messages.
     pub fn name(&self) -> String {
         match &self.source {
-            InputSource::File(path) => path.display().to_string(),
+            InputSource::File(path) | InputSource::Document(path) => path.display().to_string(),
             InputSource::Remote(iri) => iri.clone(),
         }
     }
@@ -81,6 +94,10 @@ pub enum LoadError {
         iri: String,
         reason: String,
     },
+    #[error("{input}: document is given more than once")]
+    DuplicateDocument { input: String },
+    #[error("{input}: document has the same path as a given file")]
+    DocumentShadowsFile { input: String },
 }
 
 /// Union graph of all inputs, with the location of every triple.
@@ -109,22 +126,53 @@ impl ShapesGraph {
         options: LoadOptions,
         fetcher: Option<&dyn RemoteFetcher>,
     ) -> Result<Self, LoadError> {
-        let mut files = paths
-            .iter()
-            .map(|p| {
-                let path = p.as_ref();
-                std::fs::canonicalize(path).map_err(|source| LoadError::Io {
-                    path: path.to_path_buf(),
-                    source,
-                })
+        Self::load_sources(paths, &[], Path::new("."), options, fetcher)
+    }
+
+    /// Loads files and in-memory documents together. A document behaves like a
+    /// file at `base_dir/name`: same base IRI, import resolution, ordering and
+    /// digest. Documents may not repeat a path or share one with a given file.
+    // @lat: [[architecture#Input Assembly]]
+    pub fn load_sources(
+        paths: &[impl AsRef<Path>],
+        documents: &[Document],
+        base_dir: &Path,
+        options: LoadOptions,
+        fetcher: Option<&dyn RemoteFetcher>,
+    ) -> Result<Self, LoadError> {
+        let canonical = |path: &Path| {
+            std::fs::canonicalize(path).map_err(|source| LoadError::Io {
+                path: path.to_path_buf(),
+                source,
             })
-            .collect::<Result<Vec<_>, _>>()?;
-        files.sort();
-        files.dedup();
+        };
+        let mut sources: BTreeMap<PathBuf, Option<&Document>> = BTreeMap::new();
+        for path in paths {
+            sources.insert(canonical(path.as_ref())?, None);
+        }
+        if !documents.is_empty() {
+            let base = canonical(base_dir)?;
+            for document in documents {
+                let path = normalize(&base.join(&document.name));
+                let input = path.display().to_string();
+                match sources.insert(path, Some(document)) {
+                    None => {}
+                    Some(None) => return Err(LoadError::DocumentShadowsFile { input }),
+                    Some(Some(_)) => return Err(LoadError::DuplicateDocument { input }),
+                }
+            }
+        }
 
         let mut shapes = ShapesGraph::default();
-        for path in files {
-            shapes.add_file(path)?;
+        for (path, document) in sources {
+            match document {
+                None => shapes.add_file(path)?,
+                Some(document) => shapes.add_input(
+                    InputSource::Document(path),
+                    document.text.as_bytes().to_vec(),
+                    document.format,
+                )?,
+            };
         }
         shapes.resolve_imports(options, fetcher)?;
         Ok(shapes)
@@ -181,6 +229,9 @@ impl ShapesGraph {
                     reason,
                 };
                 if let Some(path) = file_iri_to_path(&iri) {
+                    if self.is_loaded(&InputSource::Document(normalize(&path))) {
+                        continue;
+                    }
                     let path = std::fs::canonicalize(&path).map_err(|e| error(e.to_string()))?;
                     if self.is_loaded(&InputSource::File(path.clone())) {
                         continue;
@@ -199,7 +250,7 @@ impl ShapesGraph {
                     let fetcher =
                         fetcher.ok_or_else(|| error("no remote fetcher is available".into()))?;
                     let bytes = fetcher.fetch(&iri).map_err(error)?;
-                    self.add_input(source, bytes)?;
+                    self.add_input(source, bytes, None)?;
                 } else {
                     return Err(error("unsupported IRI scheme".into()));
                 }
@@ -220,10 +271,16 @@ impl ShapesGraph {
             path: path.clone(),
             source,
         })?;
-        self.add_input(InputSource::File(path), bytes)
+        self.add_input(InputSource::File(path), bytes, None)
     }
 
-    fn add_input(&mut self, source: InputSource, bytes: Vec<u8>) -> Result<FileId, LoadError> {
+    /// Parses one input; `format` overrides detection from the name.
+    fn add_input(
+        &mut self,
+        source: InputSource,
+        bytes: Vec<u8>,
+        format: Option<RdfFormat>,
+    ) -> Result<FileId, LoadError> {
         let file = self.inputs.len();
         let input = Input {
             source,
@@ -232,22 +289,26 @@ impl ShapesGraph {
                 .map(|b| format!("{b:02x}"))
                 .collect(),
         };
-        let (format, base) = match &input.source {
-            InputSource::File(path) => (Format::of_file(path), file_base_iri(path)),
-            InputSource::Remote(iri) => (Some(Format::of_remote(iri)), iri.clone()),
+        let (detected, base) = match &input.source {
+            InputSource::File(path) | InputSource::Document(path) => {
+                (RdfFormat::of_file(path), file_base_iri(path))
+            }
+            InputSource::Remote(iri) => (Some(RdfFormat::of_remote(iri)), iri.clone()),
         };
-        let result = match format {
-            Some(Format::Turtle) => {
+        let result = match format.or(detected) {
+            Some(RdfFormat::Turtle) => {
                 let parser = TurtleParser::new();
                 let parser = parser.clone().with_base_iri(&base).unwrap_or(parser);
                 self.parse(file, &bytes, parser.low_level())
             }
-            Some(Format::TriG) => {
+            Some(RdfFormat::TriG) => {
                 let parser = TriGParser::new();
                 let parser = parser.clone().with_base_iri(&base).unwrap_or(parser);
                 self.parse(file, &bytes, parser.low_level())
             }
-            Some(Format::NTriples) => self.parse(file, &bytes, NTriplesParser::new().low_level()),
+            Some(RdfFormat::NTriples) => {
+                self.parse(file, &bytes, NTriplesParser::new().low_level())
+            }
             None => {
                 return Err(LoadError::UnsupportedFormat {
                     input: input.name(),
@@ -315,19 +376,30 @@ impl ShapesGraph {
     }
 }
 
+/// RDF syntaxes accepted for shapes and ontologies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Format {
+pub enum RdfFormat {
     Turtle,
     TriG,
     NTriples,
 }
 
-impl Format {
+impl RdfFormat {
+    /// Parses a format name: `turtle`, `ntriples` or `trig`.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "turtle" => Some(RdfFormat::Turtle),
+            "ntriples" => Some(RdfFormat::NTriples),
+            "trig" => Some(RdfFormat::TriG),
+            _ => None,
+        }
+    }
+
     fn of_extension(extension: &str) -> Option<Self> {
         match extension {
-            "ttl" => Some(Format::Turtle),
-            "trig" => Some(Format::TriG),
-            "nt" => Some(Format::NTriples),
+            "ttl" => Some(RdfFormat::Turtle),
+            "trig" => Some(RdfFormat::TriG),
+            "nt" => Some(RdfFormat::NTriples),
             _ => None,
         }
     }
@@ -343,8 +415,23 @@ impl Format {
         last_segment
             .rsplit_once('.')
             .and_then(|(_, extension)| Self::of_extension(extension))
-            .unwrap_or(Format::Turtle)
+            .unwrap_or(RdfFormat::Turtle)
     }
+}
+
+/// Resolves `.` and `..` components without touching the file system.
+fn normalize(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
 }
 
 /// Renames a blank node to a deterministic id unique to its input.
@@ -782,6 +869,140 @@ mod tests {
             InputSource::Remote("https://example.org/shapes".into())
         );
         assert_eq!(remote.sha256, hex_sha256(REMOTE.as_bytes()));
+    }
+
+    fn document(name: &str, text: &str) -> Document {
+        Document {
+            name: name.into(),
+            text: text.into(),
+            format: None,
+        }
+    }
+
+    fn load_documents(base: &Path, documents: &[Document]) -> Result<ShapesGraph, LoadError> {
+        ShapesGraph::load_sources(
+            &[] as &[PathBuf],
+            documents,
+            base,
+            LoadOptions::default(),
+            None,
+        )
+    }
+
+    #[test]
+    fn documents_load_like_files() {
+        let a_text = format!("{PREFIXES}_:p ex:v 1 .\nex:S sh:property [ sh:path ex:x ] .\n");
+        let b_text = format!("{PREFIXES}_:p ex:v 2 .\n");
+        let files = tempfile::tempdir().unwrap();
+        let a = write(files.path(), "a.ttl", &a_text);
+        let b = write(files.path(), "b.ttl", &b_text);
+        let from_files = ShapesGraph::load(&[b, a]).unwrap();
+
+        let empty = tempfile::tempdir().unwrap();
+        let from_documents = load_documents(
+            empty.path(),
+            &[document("b.ttl", &b_text), document("a.ttl", &a_text)],
+        )
+        .unwrap();
+        assert_eq!(
+            sorted_ntriples(&from_files.graph),
+            sorted_ntriples(&from_documents.graph)
+        );
+        let digests = |g: &ShapesGraph| {
+            g.inputs
+                .iter()
+                .map(|i| i.sha256.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(digests(&from_files), digests(&from_documents));
+        let base = std::fs::canonicalize(empty.path()).unwrap();
+        assert_eq!(
+            from_documents.inputs[0].source,
+            InputSource::Document(base.join("a.ttl"))
+        );
+    }
+
+    #[test]
+    fn document_errors_report_name_and_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = format!("{PREFIXES}ex:s ex:p ex:o ex:extra .\n");
+        let err = load_documents(dir.path(), &[document("person.ttl", &text)]).unwrap_err();
+        assert!(err.to_string().contains("person.ttl:3:"), "{err}");
+    }
+
+    #[test]
+    fn documents_import_files_and_documents_relative_to_the_base() {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            dir.path(),
+            "common.ttl",
+            &format!("{IMPORT_PREFIXES}ex:s ex:p ex:o .\n"),
+        );
+        let main = document(
+            "main.ttl",
+            &format!("{IMPORT_PREFIXES}<> owl:imports <common.ttl>, <extra.ttl> .\n"),
+        );
+        let extra = document("extra.ttl", &format!("{IMPORT_PREFIXES}ex:s ex:p ex:x .\n"));
+        let shapes = load_documents(dir.path(), &[main, extra]).unwrap();
+        let base = std::fs::canonicalize(dir.path()).unwrap();
+        let sources: Vec<&InputSource> = shapes.inputs.iter().map(|i| &i.source).collect();
+        assert_eq!(
+            sources,
+            [
+                &InputSource::Document(base.join("extra.ttl")),
+                &InputSource::Document(base.join("main.ttl")),
+                &InputSource::File(base.join("common.ttl")),
+            ]
+        );
+    }
+
+    #[test]
+    fn duplicate_and_shadowing_documents_are_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = format!("{PREFIXES}ex:s ex:p ex:o .\n");
+        let err = load_documents(
+            dir.path(),
+            &[
+                document("person.ttl", &text),
+                document("./person.ttl", &text),
+            ],
+        )
+        .unwrap_err();
+        assert!(matches!(err, LoadError::DuplicateDocument { .. }), "{err}");
+        assert!(err.to_string().contains("person.ttl"));
+
+        let file = write(dir.path(), "a.ttl", &text);
+        let err = ShapesGraph::load_sources(
+            &[file],
+            &[document("a.ttl", &text)],
+            dir.path(),
+            LoadOptions::default(),
+            None,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, LoadError::DocumentShadowsFile { .. }),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn document_formats_come_from_the_name_or_are_explicit() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = format!("{PREFIXES}ex:s ex:p ex:o .\n");
+        let err = load_documents(dir.path(), &[document("shapes.json", &text)]).unwrap_err();
+        assert!(matches!(err, LoadError::UnsupportedFormat { .. }));
+        assert!(err.to_string().contains("shapes.json"));
+
+        let explicit = Document {
+            format: RdfFormat::from_name("turtle"),
+            ..document("shapes.txt", &text)
+        };
+        assert_eq!(
+            load_documents(dir.path(), &[explicit]).unwrap().graph.len(),
+            1
+        );
+        assert_eq!(RdfFormat::from_name("json"), None);
     }
 
     #[test]

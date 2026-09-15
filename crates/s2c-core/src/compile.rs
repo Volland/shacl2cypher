@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use crate::ast::{Severity, Shapes};
 use crate::hierarchy::{ClassHierarchy, LabelPolicy};
 use crate::ir::{Expr, FocusSet, Rule, RuleStatus, ValueSource, Violation};
-use crate::load::{InputSource, LoadOptions, RemoteFetcher, ShapesGraph, SourceLocation};
+use crate::load::{Document, InputSource, LoadOptions, RemoteFetcher, ShapesGraph, SourceLocation};
 use crate::lower::{lower, Inputs, LowerOptions};
 use crate::mapping::{LpgPath, ResolveOptions, Resolver};
 use crate::render::{self, Dialect, RuleMeta};
@@ -54,9 +54,15 @@ impl Default for CompileOptions {
     }
 }
 
+#[derive(Default)]
 pub struct CompileRequest<'a> {
     pub shapes: &'a [PathBuf],
     pub ontologies: &'a [PathBuf],
+    /// In-memory shapes, placed in [`CompileOptions::base_dir`] (default: the
+    /// working directory) as if they were files there.
+    pub shape_documents: &'a [Document],
+    /// In-memory ontologies, placed like `shape_documents`.
+    pub ontology_documents: &'a [Document],
     /// Schema snapshot JSON text.
     pub schema: Option<&'a str>,
     pub fetcher: Option<&'a dyn RemoteFetcher>,
@@ -187,7 +193,7 @@ pub fn compile(
     options: &CompileOptions,
 ) -> Result<Compilation, CompileError> {
     let dialect = options.dialect;
-    if request.shapes.is_empty() {
+    if request.shapes.is_empty() && request.shape_documents.is_empty() {
         return Err(one("no shapes files were given"));
     }
     let schema = request
@@ -204,14 +210,35 @@ pub fn compile(
     let load_options = LoadOptions {
         allow_remote_imports: options.allow_remote_imports,
     };
-    let graph =
-        ShapesGraph::load_with(request.shapes, load_options, request.fetcher).map_err(one)?;
+    let document_dir = options
+        .base_dir
+        .clone()
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(|| PathBuf::from("."));
+    let graph = ShapesGraph::load_sources(
+        request.shapes,
+        request.shape_documents,
+        &document_dir,
+        load_options,
+        request.fetcher,
+    )
+    .map_err(one)?;
+    let no_files: &[PathBuf] = &[];
     let ontologies = request
         .ontologies
         .iter()
         .map(|path| {
             ShapesGraph::load_with(std::slice::from_ref(path), load_options, request.fetcher)
         })
+        .chain(request.ontology_documents.iter().map(|document| {
+            ShapesGraph::load_sources(
+                no_files,
+                std::slice::from_ref(document),
+                &document_dir,
+                load_options,
+                request.fetcher,
+            )
+        }))
         .collect::<Result<Vec<_>, _>>()
         .map_err(one)?;
     let shapes = Shapes::from_graph(&graph).map_err(|e| CompileError(e.messages))?;
@@ -363,7 +390,8 @@ pub fn compile(
         .iter()
         .filter_map(|path| std::fs::canonicalize(path).ok())
         .collect::<BTreeSet<_>>()
-        .len();
+        .len()
+        + request.shape_documents.len();
     let mut manifest_inputs: Vec<ManifestInput> = graph
         .inputs
         .iter()
@@ -750,7 +778,7 @@ fn default_message(shape: &str, path: Option<&str>, constraint: &str) -> String 
 
 fn display_input(source: &InputSource, base: Option<&Path>) -> String {
     match source {
-        InputSource::File(path) => base
+        InputSource::File(path) | InputSource::Document(path) => base
             .and_then(|base| path.strip_prefix(base).ok())
             .unwrap_or(path)
             .display()
@@ -822,9 +850,8 @@ mod tests {
             let shapes: Vec<PathBuf> = names.iter().map(|n| self.dir.path().join(n)).collect();
             let request = CompileRequest {
                 shapes: &shapes,
-                ontologies: &[],
                 schema,
-                fetcher: None,
+                ..CompileRequest::default()
             };
             let options = CompileOptions {
                 base_dir: Some(self.dir.path().to_path_buf()),
@@ -861,6 +888,59 @@ mod tests {
                 [ sh:path ex:worksFor ; sh:class ex:Company ] ,
                 [ sh:path [ sh:oneOrMorePath ex:knows ] ; sh:class ex:Person ] .
 ";
+
+    // @lat: [[tests#Loading#In-Memory Documents]]
+    #[test]
+    fn documents_compile_like_files() {
+        const HR: &str = "ex:PersonShape sh:property [ sh:path ex:salary ; sh:minCount 1 ] .\n";
+        let project = Project::new(&[("person.ttl", PERSON), ("hr.ttl", HR)]);
+        let from_files = project
+            .compile_files(&["person.ttl", "hr.ttl"], None, neo4j())
+            .unwrap();
+
+        let elsewhere = tempfile::tempdir().unwrap();
+        let documents: Vec<Document> = [("hr.ttl", HR), ("person.ttl", PERSON)]
+            .iter()
+            .map(|(name, body)| Document {
+                name: (*name).into(),
+                text: format!("{PREFIXES}{body}"),
+                format: None,
+            })
+            .collect();
+        let request = CompileRequest {
+            shape_documents: &documents,
+            ..CompileRequest::default()
+        };
+        let options = CompileOptions {
+            base_dir: Some(elsewhere.path().to_path_buf()),
+            ..neo4j()
+        };
+        let from_documents = compile(&request, &options).unwrap();
+        assert_eq!(from_documents.manifest_json(), from_files.manifest_json());
+        assert_eq!(from_documents.cypher, from_files.cypher);
+    }
+
+    #[test]
+    fn document_errors_name_the_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let documents = [Document {
+            name: "person.ttl".into(),
+            text: format!(
+                "{PREFIXES}ex:PersonShape sh:targetClass ex:Person ;\n  sh:property [ sh:path ex:name ; sh:minCount \"two\" ] .\n"
+            ),
+            format: None,
+        }];
+        let request = CompileRequest {
+            shape_documents: &documents,
+            ..CompileRequest::default()
+        };
+        let options = CompileOptions {
+            base_dir: Some(dir.path().to_path_buf()),
+            ..neo4j()
+        };
+        let error = compile(&request, &options).unwrap_err().to_string();
+        assert!(error.contains("person.ttl:6"), "{error}");
+    }
 
     #[test]
     fn compiles_a_manifest_and_cypher_file() {

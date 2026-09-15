@@ -9,13 +9,16 @@ The workspace separates deterministic compilation from database I/O so the core 
 - `shacl2cypher-core`: input assembly, shapes AST, resolution, IR, dialect renderers, manifest. No database I/O.
 - `shacl2cypher`: the `shacl2cypher` binary with `compile`, plus `validate` and `schema dump` when runner features are enabled.
 - `shacl2cypher-runner`: executes manifests and introspects schemas; cargo features `neo4j` (Bolt via `neo4rs`) and `ladybug` (embedded `lbug` bindings).
-- `s2c-testkit`: test-only, unpublished; loads conformance fixtures and projects them to RDF and LPG load scripts — see [[testing#Conformance Fixtures]].
+- `s2c-testkit`: test-only, unpublished; loads conformance fixtures and projects them to RDF and LPG load scripts — see [[testing#Conformance Fixtures]]. With feature `ladybug`, `s2c-fixture ladybug-db` writes a fixture into a LadybugDB file for binding tests.
+- `s2c-python` and `s2c-node`: unpublished crates building the `shacl2cypher` PyPI and npm packages — see [[bindings]].
 
 The crates are published to crates.io as `shacl2cypher-core`, `shacl2cypher-runner` and `shacl2cypher` (the CLI, installable with `cargo install --locked shacl2cypher --features neo4j,ladybug`; `--locked` is needed on Rust 1.87), under the MIT license; `s2c-testkit` is never published. Directories keep their `crates/s2c-*` names. The runner's integration tests are excluded from its package because they need repository fixtures.
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`. It creates the GitHub release and attaches `shacl2cypher` binaries with both backends for Linux x86_64, Linux arm64 and macOS arm64, each with a SHA-256 checksum.
+Pushing a `v*` tag runs `.github/workflows/release.yml`. After checking that the tag matches the workspace version, it creates the GitHub release and attaches `shacl2cypher` binaries with both backends for Linux x86_64, Linux arm64 and macOS arm64, each with a SHA-256 checksum. The same workflow publishes the Python and npm packages — see [[bindings#Release]].
 
 The workspace declares `rust-version = "1.87"` and uses Cargo's `incompatible-rust-versions = "fallback"` resolver so dependency versions stay compatible with that toolchain. Throwaway spikes live in `spikes/`, excluded from the workspace.
+
+Binding dependencies were pinned against that toolchain by the `spikes/bindings-msrv` spike: `pyo3` 0.29 and `pythonize` 0.29 (Rust 1.83), and `napi` 3.4, `napi-derive` 3.3 and `napi-build` 2.2.4 (Rust 1.82). Newer napi-rs releases need Rust 1.88, so they are capped with `<` bounds.
 
 ## Input Assembly
 
@@ -29,6 +32,7 @@ All input shape files are parsed into one union graph before building the AST, f
 - `owl:imports` are followed until no new input appears, in IRI order for determinism. Relative imports resolve against the importing file's `file://` base, and cycles terminate because each canonical path loads once.
 - `http(s)` imports require `--allow-remote-imports`; bytes come from a caller-supplied `RemoteFetcher` so the core crate performs no network I/O. Remote documents are parsed by extension, defaulting to Turtle.
 - Every input (file or remote IRI) records the SHA-256 of the bytes parsed, for manifest provenance. Import failures point to the `file:line` of the `owl:imports` triple.
+- In-memory documents (`Document`: name, text, optional format) load exactly like a file at `base_dir/name`: that path (normalized, not canonicalized) gives the base IRI, relative imports, sort position, manifest path and `name:line` locations. A repeated document path, or one equal to a given file, is an error. Bindings use them so they never write temp files.
 - Conflicting single-valued settings across files (e.g. two `sh:severity` values or two `s2c:key`s on one shape) are compile errors listing both source spans.
 
 ## Shapes AST
@@ -57,7 +61,8 @@ Options: `--dialect neo4j|ladybug` (required), `--schema`, repeatable `--ontolog
 - Manifest input paths are relative to the working directory.
 - Compile errors print one `error:` line per problem and exit 1, writing no files. Usage errors exit 2.
 - Static diagnostics print as `warning: file:line: code: message` and do not fail the build without `--fail-on-schema-mismatch`.
-- Remote imports are fetched over HTTP(S) by the CLI (30 s timeout, 16 MB cap), so the core stays free of network I/O.
+- Remote imports are fetched over HTTP(S) by the runner's `remote-imports` feature (30 s timeout, 16 MB cap), which the CLI enables, so the core stays free of network I/O.
+- Backend opening and the validate-flow rules live in the runner, shared with the language bindings — see [[bindings#Shared Runner Glue]].
 
 ## Runner
 

@@ -81,9 +81,8 @@ fn check(
     let compilation = compile(
         &CompileRequest {
             shapes: &shapes,
-            ontologies: &[],
             schema: Some(&schema_json),
-            fetcher: None,
+            ..CompileRequest::default()
         },
         &CompileOptions {
             dialect,

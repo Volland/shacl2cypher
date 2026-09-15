@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use shacl2cypher_core::compile::{Manifest, ManifestRule, SourceRef};
 
 use crate::executor::{ExecError, Executor, Params, Row};
@@ -46,7 +46,7 @@ impl Default for ValidateOptions {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Status {
     Passed,
@@ -57,7 +57,7 @@ pub enum Status {
     GuaranteedBySchema,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuleResult {
     pub name: String,
@@ -67,7 +67,7 @@ pub struct RuleResult {
     pub constraint: String,
     pub severity: String,
     pub status: Status,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status_reason: Option<String>,
     /// Null when the summary query did not complete or the rule has no queries.
     pub violation_count: Option<u64>,
@@ -84,7 +84,7 @@ impl RuleResult {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Summary {
     pub rules: usize,
@@ -98,7 +98,9 @@ pub struct Summary {
     pub duration_ms: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// Serializes to the `--format json` report; deserializes from it, so reports can
+/// be rendered or scored after a round trip through JSON.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
     pub tool: String,
@@ -119,13 +121,7 @@ pub fn validate(
     executor: &mut dyn Executor,
     options: &ValidateOptions,
 ) -> Result<Report, String> {
-    let backend = executor.dialect().name();
-    if manifest.dialect != backend {
-        return Err(format!(
-            "the manifest was compiled for {} but the database is {backend}",
-            manifest.dialect
-        ));
-    }
+    crate::session::check_dialect(manifest, executor.dialect())?;
     let params = Params {
         limit: options
             .limit

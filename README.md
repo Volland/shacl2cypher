@@ -22,6 +22,7 @@ failed      Violation           1         8  PersonShape.worksFor.maxCount
 - [Install](#install)
 - [Build](#build)
 - [Quick start](#quick-start)
+- [Python and TypeScript](#python-and-typescript)
 - [How shapes map to the graph](#how-shapes-map-to-the-graph)
 - [The `s2c:` annotation vocabulary](#the-s2c-annotation-vocabulary)
 - [Supported SHACL](#supported-shacl)
@@ -43,6 +44,13 @@ cargo install --locked shacl2cypher --features neo4j,ladybug     # with database
 `--locked` installs the dependency versions the release was tested with. It is required on Rust 1.87, where the newest versions of some transitive dependencies need a newer compiler.
 
 The compiler and runner are also published as libraries: [`shacl2cypher-core`](https://crates.io/crates/shacl2cypher-core) and [`shacl2cypher-runner`](https://crates.io/crates/shacl2cypher-runner).
+
+Python and Node.js packages bundle both database backends — see [Python and TypeScript](#python-and-typescript):
+
+```sh
+pip install shacl2cypher      # CPython 3.9+
+npm install shacl2cypher      # Node.js 18+
+```
 
 ## Build
 
@@ -101,6 +109,60 @@ shacl2cypher validate --manifest out/manifest.json --connect bolt://localhost:76
 ```
 
 Useful options: `--timeout <seconds>` per query, `--limit` for violations listed per rule (`0` lists all), `--fail-on violation|warning|info`, and `--verbose` to include all focus properties in rows. Run `shacl2cypher <command> --help` for the full list.
+
+## Python and TypeScript
+
+The `shacl2cypher` packages on PyPI and npm run the same compiler and runner in-process, without the CLI. Manifests, queries and reports are byte-identical to the CLI's, and their data uses the camelCase keys of `manifest.json` and `--format json`.
+
+### Python
+
+```python
+import shacl2cypher
+
+compilation = shacl2cypher.compile(["shapes/person.ttl"], dialect="neo4j", node_key="id")
+compilation.write("out")                        # manifest.json and queries.cypher
+print(compilation.manifest["rules"][0]["ruleId"])
+
+with shacl2cypher.Ladybug("graph.lbug") as db:  # or shacl2cypher.Neo4j("bolt://localhost:7687", password="...")
+    report = db.validate(["shapes/person.ttl"], node_key="id", timeout=30)
+    print(report.render("table"))               # also "json", "junit", "sarif"
+    raise SystemExit(report.exit_code("violation"))
+```
+
+- Shapes are paths or in-memory `shacl2cypher.Source(name, text)` documents. A document behaves like the file `name` in `base_dir` (default: the working directory).
+- `schema` takes snapshot JSON text or a parsed snapshot, such as `db.schema()`. `db.validate(manifest=...)` runs a manifest compiled earlier.
+- Errors derive from `Shacl2CypherError`: `CompileError` (with `.errors`), `ManifestError`, `DatabaseConnectionError`, `BackendUnavailableError` and `DatabaseClosedError`. Invalid option values raise `ValueError`.
+- Calls release the GIL. A handle runs one call at a time on its own thread.
+
+### TypeScript
+
+```ts
+import { compile, Ladybug, renderReport, exitCode } from 'shacl2cypher';
+
+const compilation = await compile({ shapes: ['shapes/person.ttl'], dialect: 'neo4j', nodeKey: 'id' });
+compilation.write('out');
+
+const db = await Ladybug.open('graph.lbug');   // or await Neo4j.connect({ uri: 'bolt://localhost:7687', password: '...' })
+try {
+  const report = await db.validate({ shapes: ['shapes/person.ttl'], nodeKey: 'id', timeoutMs: 30_000 });
+  console.log(renderReport(report, 'table'));
+  process.exitCode = exitCode(report, 'violation');
+} finally {
+  await db.close();
+}
+```
+
+- Options are camelCase objects, and unknown keys throw `TypeError`. `limit: 0` or `null` lists every violation.
+- `compile`, `validate`, `schema` and `close` return Promises and never block the event loop. `compileSync` compiles on the calling thread.
+- The error classes match Python's. Invalid option values throw `TypeError`, and a non-positive `timeoutMs` throws `RangeError`. Types for every option, manifest, report and snapshot ship in `index.d.ts`.
+
+### Platforms and source builds
+
+Wheels (one abi3 wheel for CPython 3.9+) and npm addons are published for Linux x86_64 and arm64 (glibc 2.28+) and macOS arm64, each with the Neo4j and LadybugDB backends. Other platforms can install the Python source distribution, which builds both backends and needs Rust 1.87+, cmake and a C++ compiler. A compile-only build needs neither cmake nor C++:
+
+```sh
+MATURIN_PEP517_ARGS="--no-default-features --features remote-imports" pip install --no-binary shacl2cypher shacl2cypher
+```
 
 ## How shapes map to the graph
 

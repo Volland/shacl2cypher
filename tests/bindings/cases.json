@@ -1,0 +1,16 @@
+{
+  "comment": "Cases both binding test suites compare with the CLI. Paths are relative to the repository root; `cwd` is where the CLI runs and the bindings' baseDir.",
+  "compile": [
+    { "name": "in-has-value", "cwd": "tests/conformance/core", "shapes": ["in-has-value.ttl"], "dialect": "neo4j", "nodeKey": "id" },
+    { "name": "cardinality", "cwd": "tests/conformance/core", "shapes": ["cardinality.ttl"], "dialect": "neo4j", "nodeKey": "id" },
+    { "name": "class", "cwd": "tests/conformance/core", "shapes": ["class.ttl"], "dialect": "neo4j", "nodeKey": "id" },
+    { "name": "pairs", "cwd": "tests/conformance/core", "shapes": ["pairs.ttl"], "dialect": "neo4j", "nodeKey": "id" },
+    { "name": "strings", "cwd": "tests/conformance/core", "shapes": ["strings.ttl"], "dialect": "neo4j", "nodeKey": "id" },
+    { "name": "split-across-files", "cwd": "tests/bindings/split", "shapes": ["hr.ttl", "core.ttl"], "dialect": "neo4j" },
+    { "name": "split-for-ladybug", "cwd": "tests/bindings/split", "shapes": ["core.ttl", "hr.ttl"], "dialect": "ladybug", "schema": "schema.json", "nodeKey": "id" },
+    { "name": "local-import", "cwd": "tests/bindings/imports", "shapes": ["main.ttl"], "dialect": "neo4j", "nodeKey": "id" }
+  ],
+  "reports": [
+    { "name": "in-has-value", "fixture": "tests/conformance/core/in-has-value.yaml", "cwd": "tests/conformance/core", "shapes": ["in-has-value.ttl"], "nodeKey": "id" }
+  ]
+}

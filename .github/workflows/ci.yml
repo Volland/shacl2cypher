@@ -49,6 +49,9 @@ jobs:
         options: >-
           --health-cmd "cypher-shell -u neo4j -p s2c-ci-password 'RETURN 1'"
           --health-interval 5s --health-timeout 10s --health-retries 30
+    env:
+      S2C_NEO4J_URI: bolt://localhost:7687
+      S2C_NEO4J_PASSWORD: s2c-ci-password
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -58,9 +61,98 @@ jobs:
         with:
           key: neo4j
       - run: cargo test --workspace --features shacl2cypher/neo4j
-        env:
-          S2C_NEO4J_URI: bolt://localhost:7687
-          S2C_NEO4J_PASSWORD: s2c-ci-password
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python binding against Neo4j
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install maturin pytest
+          VIRTUAL_ENV="$PWD/.venv" .venv/bin/maturin develop -m crates/s2c-python/Cargo.toml --no-default-features -F neo4j -F remote-imports
+          .venv/bin/python -m pytest crates/s2c-python/tests/test_neo4j.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Node binding against Neo4j
+        working-directory: crates/s2c-node
+        run: |
+          npm install --no-audit --no-fund
+          npx napi build --platform --no-js --dts native.d.ts --features neo4j,remote-imports
+          node --test test/database.test.js
+
+  python:
+    name: Python binding (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.87.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ladybug
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build the CLI and fixture tool with LadybugDB
+        run: |
+          cargo build -p shacl2cypher --features ladybug
+          cargo build -p s2c-testkit --features ladybug --bin s2c-fixture
+      - name: Create a virtualenv
+        run: |
+          python -m venv .venv
+          echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - run: pip install maturin pytest mypy
+      - run: maturin develop -m crates/s2c-python/Cargo.toml
+      - run: pytest crates/s2c-python/tests
+      - run: mypy --strict crates/s2c-python/examples/typed_usage.py
+      - name: Compile-only build
+        run: |
+          maturin build -m crates/s2c-python/Cargo.toml --no-default-features -F remote-imports -o dist-lite
+          python -m venv .venv-lite
+          .venv-lite/bin/pip install pytest dist-lite/*.whl
+          .venv-lite/bin/python -c "import shacl2cypher; assert shacl2cypher.available_backends() == []"
+          .venv-lite/bin/python -m pytest crates/s2c-python/tests
+
+  node:
+    name: Node binding (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "22"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.87.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ladybug
+      - name: Build the CLI and fixture tool with LadybugDB
+        run: |
+          cargo build -p shacl2cypher --features ladybug
+          cargo build -p s2c-testkit --features ladybug --bin s2c-fixture
+      # @napi-rs/cli needs Node 20.17+, so the addon is built with Node 22 and tested on each version.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the addon and type-check the example
+        working-directory: crates/s2c-node
+        run: |
+          npm install --no-audit --no-fund
+          npm run build:debug
+          npx tsc -p examples
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+        working-directory: crates/s2c-node
 
   pyshacl-oracle:
     name: pySHACL oracle
