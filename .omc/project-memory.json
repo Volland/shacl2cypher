@@ -95,6 +95,18 @@
   },
   "hotPaths": [
     {
+      "path": "crates/s2c-core/src/compile.rs",
+      "accessCount": 15,
+      "lastAccessed": 1789472148569,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/src/main.rs",
+      "accessCount": 15,
+      "lastAccessed": 1789472276432,
+      "type": "file"
+    },
+    {
       "path": "crates/s2c-core/src/load.rs",
       "accessCount": 12,
       "lastAccessed": 1789457039618,
@@ -107,21 +119,15 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-cli/src/main.rs",
-      "accessCount": 11,
-      "lastAccessed": 1789457310008,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-core/src/compile.rs",
-      "accessCount": 9,
-      "lastAccessed": 1789457075271,
-      "type": "file"
-    },
-    {
       "path": "crates/s2c-runner/src/validate.rs",
       "accessCount": 9,
       "lastAccessed": 1789457723987,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/session.rs",
+      "accessCount": 7,
+      "lastAccessed": 1789472176845,
       "type": "file"
     },
     {
@@ -131,15 +137,45 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-testkit/src/w3c.rs",
-      "accessCount": 4,
-      "lastAccessed": 1789426993467,
+      "path": "crates/s2c-runner/src/lib.rs",
+      "accessCount": 6,
+      "lastAccessed": 1789472173027,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/Cargo.toml",
+      "accessCount": 6,
+      "lastAccessed": 1789472174833,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/Cargo.toml",
+      "accessCount": 6,
+      "lastAccessed": 1789472203882,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-testkit/src/lpg.rs",
+      "accessCount": 6,
+      "lastAccessed": 1789472663729,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/src/render/neo4j.rs",
+      "accessCount": 5,
+      "lastAccessed": 1789471852911,
       "type": "file"
     },
     {
       "path": "crates/s2c-core/tests/determinism.rs",
+      "accessCount": 5,
+      "lastAccessed": 1789471905595,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-testkit/src/w3c.rs",
       "accessCount": 4,
-      "lastAccessed": 1789457087849,
+      "lastAccessed": 1789426993467,
       "type": "file"
     },
     {
@@ -155,27 +191,9 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-runner/src/session.rs",
-      "accessCount": 4,
-      "lastAccessed": 1789457892004,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-runner/src/lib.rs",
-      "accessCount": 4,
-      "lastAccessed": 1789457925823,
-      "type": "file"
-    },
-    {
       "path": "Cargo.toml",
       "accessCount": 4,
       "lastAccessed": 1789463903017,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-cli/Cargo.toml",
-      "accessCount": 4,
-      "lastAccessed": 1789463905118,
       "type": "file"
     },
     {
@@ -185,15 +203,33 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-core/src/mapping.rs",
-      "accessCount": 3,
-      "lastAccessed": 1789426236747,
+      "path": "crates/s2c-core/tests/snapshots.rs",
+      "accessCount": 4,
+      "lastAccessed": 1789471905992,
       "type": "file"
     },
     {
-      "path": "crates/s2c-core/tests/snapshots.rs",
+      "path": "crates/s2c-cli/tests/validate.rs",
+      "accessCount": 4,
+      "lastAccessed": 1789472544546,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/tests/literals.rs",
+      "accessCount": 4,
+      "lastAccessed": 1789473062883,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 4,
+      "lastAccessed": 1789473383191,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-core/src/mapping.rs",
       "accessCount": 3,
-      "lastAccessed": 1789457089550,
+      "lastAccessed": 1789426236747,
       "type": "file"
     },
     {
@@ -203,21 +239,21 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-runner/Cargo.toml",
-      "accessCount": 3,
-      "lastAccessed": 1789463906684,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 3,
-      "lastAccessed": 1789465550570,
-      "type": "file"
-    },
-    {
       "path": "openspec/specs/shapes-loading/spec.md",
       "accessCount": 3,
       "lastAccessed": 1789466602925,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-runner/src/backend.rs",
+      "accessCount": 3,
+      "lastAccessed": 1789472168504,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/tests/compile.rs",
+      "accessCount": 3,
+      "lastAccessed": 1789472550989,
       "type": "file"
     },
     {
@@ -227,21 +263,9 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-core/src/render/neo4j.rs",
-      "accessCount": 2,
-      "lastAccessed": 1789426450053,
-      "type": "file"
-    },
-    {
       "path": "crates/s2c-testkit/Cargo.toml",
       "accessCount": 2,
       "lastAccessed": 1789457337289,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-testkit/src/lpg.rs",
-      "accessCount": 2,
-      "lastAccessed": 1789457341112,
       "type": "file"
     },
     {
@@ -269,9 +293,9 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-cli/tests/compile.rs",
-      "accessCount": 1,
-      "lastAccessed": 1789423608459,
+      "path": "crates/s2c-runner/src/neo4j.rs",
+      "accessCount": 2,
+      "lastAccessed": 1789472000021,
       "type": "file"
     },
     {
@@ -293,27 +317,9 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-runner/src/neo4j.rs",
-      "accessCount": 1,
-      "lastAccessed": 1789424262297,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-cli/tests/validate.rs",
-      "accessCount": 1,
-      "lastAccessed": 1789424532105,
-      "type": "file"
-    },
-    {
       "path": "crates/s2c-core/src/lower.rs",
       "accessCount": 1,
       "lastAccessed": 1789424770723,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-runner/tests/literals.rs",
-      "accessCount": 1,
-      "lastAccessed": 1789425018210,
       "type": "file"
     },
     {
@@ -368,12 +374,6 @@
       "path": "crates/s2c-runner/src/remote.rs",
       "accessCount": 1,
       "lastAccessed": 1789457243984,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-runner/src/backend.rs",
-      "accessCount": 1,
-      "lastAccessed": 1789457258540,
       "type": "file"
     },
     {

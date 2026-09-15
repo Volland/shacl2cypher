@@ -1,5 +1,7 @@
 target/
 lat.md/.cache/
+# oh-my-claudecode session state.
+.omc/
 
 # Language bindings: built extensions, dependencies and tool caches.
 *.node
