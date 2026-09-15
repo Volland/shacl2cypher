@@ -5,7 +5,7 @@ Defines how the Python and TypeScript bindings are built, versioned and publishe
 ## ADDED Requirements
 
 ### Requirement: Python wheels
-The `shacl2cypher` Python distribution SHALL publish binary wheels for CPython 3.9 and newer, using the stable ABI (one wheel per platform). Wheels SHALL cover Linux x86_64 and Linux arm64 on glibc 2.28 or newer, and macOS arm64. Each wheel SHALL include the Neo4j and LadybugDB backends.
+The `shacl2cypher` Python distribution SHALL publish binary wheels for CPython 3.9 and newer, using the stable ABI (one wheel per platform). Wheels SHALL cover Linux x86_64 and Linux arm64 on glibc 2.28 or newer, and macOS 13.3 or newer on arm64. Each wheel SHALL include the Neo4j and LadybugDB backends and SHALL NOT require OpenSSL to be installed.
 
 #### Scenario: Install without Rust
 - **WHEN** `pip install shacl2cypher` runs on Linux x86_64 with CPython 3.12 and no Rust or cmake installed
@@ -23,7 +23,7 @@ The Python release SHALL also publish an sdist that builds with a Rust toolchain
 - **THEN** the build succeeds and compile works, while opening a database raises `BackendUnavailableError`
 
 ### Requirement: npm packages
-The `shacl2cypher` npm package SHALL work on Node.js 18 and newer. It SHALL load a prebuilt native addon from an optional per-platform dependency: `shacl2cypher-linux-x64-gnu`, `shacl2cypher-linux-arm64-gnu` or `shacl2cypher-darwin-arm64`. Each addon SHALL include both backends. It SHALL ship ES module and CommonJS entry points and TypeScript declarations.
+The `shacl2cypher` npm package SHALL work on Node.js 18 and newer. It SHALL load a prebuilt native addon from an optional per-platform dependency: `shacl2cypher-linux-x64-gnu`, `shacl2cypher-linux-arm64-gnu` or `shacl2cypher-darwin-arm64`. Each addon SHALL include both backends, SHALL NOT require OpenSSL to be installed, and on macOS SHALL support 13.3 or newer. It SHALL ship ES module and CommonJS entry points and TypeScript declarations.
 
 #### Scenario: Install on a supported platform
 - **WHEN** `npm install shacl2cypher` runs on macOS arm64 with Node.js 20

@@ -167,6 +167,18 @@
       "type": "file"
     },
     {
+      "path": "Cargo.toml",
+      "accessCount": 4,
+      "lastAccessed": 1789463903017,
+      "type": "file"
+    },
+    {
+      "path": "crates/s2c-cli/Cargo.toml",
+      "accessCount": 4,
+      "lastAccessed": 1789463905118,
+      "type": "file"
+    },
+    {
       "path": "crates/s2c-core/src/mapping.rs",
       "accessCount": 3,
       "lastAccessed": 1789426236747,
@@ -185,15 +197,21 @@
       "type": "file"
     },
     {
-      "path": "crates/s2c-cli/Cargo.toml",
+      "path": "crates/s2c-runner/Cargo.toml",
       "accessCount": 3,
-      "lastAccessed": 1789457335013,
+      "lastAccessed": 1789463906684,
       "type": "file"
     },
     {
-      "path": "Cargo.toml",
+      "path": "README.md",
       "accessCount": 3,
-      "lastAccessed": 1789458562175,
+      "lastAccessed": 1789465550570,
+      "type": "file"
+    },
+    {
+      "path": "openspec/changes/add-python-typescript-bindings/specs/binding-packaging/spec.md",
+      "accessCount": 3,
+      "lastAccessed": 1789466084112,
       "type": "file"
     },
     {
@@ -206,12 +224,6 @@
       "path": "crates/s2c-core/src/render/neo4j.rs",
       "accessCount": 2,
       "lastAccessed": 1789426450053,
-      "type": "file"
-    },
-    {
-      "path": "crates/s2c-runner/Cargo.toml",
-      "accessCount": 2,
-      "lastAccessed": 1789457329019,
       "type": "file"
     },
     {
@@ -233,9 +245,9 @@
       "type": "file"
     },
     {
-      "path": "README.md",
+      "path": "openspec/changes/add-python-typescript-bindings/design.md",
       "accessCount": 2,
-      "lastAccessed": 1789459071347,
+      "lastAccessed": 1789463975927,
       "type": "file"
     },
     {
@@ -323,21 +335,9 @@
       "type": "file"
     },
     {
-      "path": "openspec/changes/add-python-typescript-bindings/specs/binding-packaging/spec.md",
-      "accessCount": 1,
-      "lastAccessed": 1789456493314,
-      "type": "file"
-    },
-    {
       "path": "openspec/changes/add-python-typescript-bindings/specs/shapes-loading/spec.md",
       "accessCount": 1,
       "lastAccessed": 1789456500826,
-      "type": "file"
-    },
-    {
-      "path": "openspec/changes/add-python-typescript-bindings/design.md",
-      "accessCount": 1,
-      "lastAccessed": 1789456570594,
       "type": "file"
     },
     {

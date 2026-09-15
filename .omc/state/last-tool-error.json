@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd /Users/volodymyrpavlyshyn/Documents/work/shacl2cypher/crates/s2c-python && export DEVELOPER_DIR=/Library/Developer/CommandLineTools VIRTUAL_ENV=/private/tmp/claude-501/-Users-volodymyrp...",
-  "error": "Exit code 1\n💥 maturin failed\n  Caused by: Both VIRTUAL_ENV and CONDA_PREFIX are set. Please unset one of them\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nModuleNotFoundError: No module named 'shacl2cypher'",
-  "timestamp": "2026-09-15T07:41:11.052Z",
+  "tool_input_preview": "{\"command\":\"export DEVELOPER_DIR=/Library/Developer/CommandLineTools && D=/private/tmp/claude-501/-Users-volodymyrpavlyshyn-Documents-work-shacl2cypher/05fe22f7-0569-4777-9659-7f57ff30287a/scratchpad/...",
+  "error": "Exit code 1\n--- all dynamic deps\n\t/private/tmp/claude-501/-Users-volodymyrpavlyshyn-Documents-work-shacl2cypher/05fe22f7-0569-4777-9659-7f57ff30287a/scratchpad/openssl/target/debug/deps/libs2c_node.dylib (compatibility version 0.0.0, current version 0.0.0)\n\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 62460.1.2)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current ...",
+  "timestamp": "2026-09-15T09:46:31.960Z",
   "retry_count": 1
 }
